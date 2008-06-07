@@ -76,7 +76,7 @@ int shscale (complex double *samp, shdata *dat, int sgn) {
 	/* For negative sgn, flip the signs of the imaginary multipliers. */
 	if (sgn < 0) {
 		cscale[0] = -I;
-		cscale[3] = I;
+		cscale[2] = I;
 	}
 
 	for (i = 0; i < dat->deg; ++i) {

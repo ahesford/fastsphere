@@ -53,7 +53,7 @@ int main (int argc, char **argv) {
 	if (argc > 3) n = atoi (argv[3]);
 	if (argc > 4) m = atoi (argv[4]);
 
-	if (n < 0 || n >= l) m = 0;
+	if (n < 0 || n >= l) n = 0;
 	if (m < -n || m > n) m = 0;
 
 	fshtinit (&dat, l);
