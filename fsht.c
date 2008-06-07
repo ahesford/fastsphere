@@ -87,7 +87,7 @@ int shscale (complex double *samp, shdata *dat, int sgn) {
 		samp[off] *= cscale[idx];
 
 		/* Scale the nonzero orders for all degrees. */
-		for (j = 1; j < dat->deg; ++j) {
+		for (j = 1; j <= i; ++j) {
 			samp[off + j] *= cscale[idx];
 			samp[off + dat->nphi - j] *= cscale[idx];
 		}
