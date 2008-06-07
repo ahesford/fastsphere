@@ -66,6 +66,9 @@ int main (int argc, char **argv) {
 	/* Read the SH coefficients. */
 	readat (stdin, vals, j);
 
+	/* Scale the coefficients in preparation for an inverse transform. */
+	shscale (vals, &dat, -1);
+
 	/* Translate from SH coefficients to angular samples. */
 	ifsht (vals, &dat);
 
@@ -82,7 +85,11 @@ int main (int argc, char **argv) {
 		prtdata (stdout, vals, dat.ntheta, dat.nphi, dat.theta);
 	}
 
+	/* Translate from angular samples back to SH coefficients. */
 	ffsht (vals, &dat);
+
+	/* Scale the coefficients to get the appropriate values. */
+	shscale (vals, &dat, 1);
 
 	if (!getenv ("SH_QUIET")) {
 		printf ("SPHERICAL HARMONICS (INCOMING)\n");

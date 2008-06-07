@@ -64,6 +64,38 @@ int fshtfree (shdata *dat) {
 	return 0;
 }
 
+/* Scale the components of the spherical harmonic coefficients to relate the
+ * far-field signature to the spherical harmonic expansion. The default (for
+ * non-negative sgn) properly scales SH coefficients AFTER a forward
+ * transform (angular to spherical). If sgn is negative, it scales the SH
+ * coefficients BEFORE an inverse transform (spherical to angular). */
+int shscale (complex double *samp, shdata *dat, int sgn) {
+	complex double cscale[4] = { I, -1.0, -I, 1.0 };
+	int i, j, off, idx;
+
+	/* For negative sgn, flip the signs of the imaginary multipliers. */
+	if (sgn < 0) {
+		cscale[0] = -I;
+		cscale[3] = I;
+	}
+
+	for (i = 0; i < dat->deg; ++i) {
+		idx = i % 4;
+		off = i * dat->nphi;
+
+		/* Scale the zero order for all degrees. */
+		samp[off] *= cscale[idx];
+
+		/* Scale the nonzero orders for all degrees. */
+		for (j = 1; j < dat->deg; ++j) {
+			samp[off + j] *= cscale[idx];
+			samp[off + dat->nphi - j] *= cscale[idx];
+		}
+	}
+
+	return 0;
+}
+
 /* Forward spherical harmonic transform: take samples of the function in theta
  * and phi into SH coefficients. */
 int ffsht (complex double *samp, shdata *dat) {

@@ -17,4 +17,6 @@ int fshtfree (shdata *);
 int ffsht (complex double *, shdata *);
 int ifsht (complex double *, shdata *);
 
+int shscale (complex double *, shdata *, int);
+
 #endif /* __FSHT_H_ */
