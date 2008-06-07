@@ -69,7 +69,7 @@ int main (int argc, char **argv) {
 	translator (trans, dat.deg, dat.ntheta, dat.nphi, dat.theta, kr, sdir);
 
 	if (m >= 0) vals[n * dat.nphi + m] = 1.0;
-	else vals[(n + 1) * dat.nphi - m] = 1.0;
+	else vals[(n + 1) * dat.nphi + m] = 1.0;
 
 	/* Scale the coefficients in preparation for an inverse transform. */
 	shscale (vals, &dat, -1);
