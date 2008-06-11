@@ -5,8 +5,23 @@
 #include <float.h>
 
 #include "spbessel.h"
+#include "translator.h"
 
 #define MAX(a,b) (((a) > (b)) ? (a) : (b))
+
+/* Compute the number of harmonics required using the excess bandwidth
+ * formula. */
+int exband (complex double kr, double ndig) {
+	double akr;
+	int l;
+	
+	akr = cabs (kr);
+	ndig *= ndig;
+
+	l = ceil (akr + 1.8 * cbrt(ndig * akr));
+
+	return l;
+}
 
 /* Computes the Legendre polynomials up to order n for the argument x. The
  * values are stored in the array v. */

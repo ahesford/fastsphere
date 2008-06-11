@@ -8,6 +8,7 @@
 #include <fftw3.h>
 
 #include "fsht.h"
+#include "translator.h"
 
 void prtdata (FILE *output, complex double *vals, int nth, int nph, double *theta) {
 	int i, j;
@@ -44,17 +45,21 @@ void readat (FILE *input, complex double *vals, int n) {
 int main (int argc, char **argv) {
 	int l = 10, i, j, m = 0, n = 0;
 	shdata dat;
-	complex double *vals, *trans, kr;
+	complex double *vals, *trans, kr, ka;
 	double sdir[3] = { 0.0, 0.0, 1.0 }, trlen = 10;
 
 	/* Read some parameters. */
-	if (argc > 1) l = atoi (argv[1]);
+	if (argc > 1) ka = 2 * M_PI * strtod (argv[1], NULL);
 	if (argc > 2) trlen = strtod (argv[2], NULL);
 	if (argc > 3) n = atoi (argv[3]);
 	if (argc > 4) m = atoi (argv[4]);
 
+	l = exband (ka, 6);
+
 	if (n < 0 || n >= l) n = 0;
 	if (m < -n || m > n) m = 0;
+
+	fprintf (stderr, "Translation of (%d,%d), maximum %d harmonics.\n", n, m, l);
 
 	fshtinit (&dat, l);
 
@@ -66,7 +71,7 @@ int main (int argc, char **argv) {
 	kr = 2 * M_PI * trlen;
 
 	/* Build the FMM translator in the z-direction. */
-	translator (trans, dat.deg, dat.ntheta, dat.nphi, dat.theta, kr, sdir);
+	translator (trans, 2 * dat.deg - 1, dat.ntheta, dat.nphi, dat.theta, kr, sdir);
 
 	if (m >= 0) vals[n * dat.nphi + m] = 1.0;
 	else vals[(n + 1) * dat.nphi + m] = 1.0;
@@ -86,7 +91,7 @@ int main (int argc, char **argv) {
 	/* Scale the coefficients to get the appropriate values. */
 	shscale (vals, &dat, 1);
 
-	prtdata (stdout, vals, dat.ntheta, dat.nphi, NULL);
+	prtdata (stdout, vals, dat.deg, dat.nphi, NULL);
 
 	fshtfree (&dat);
 	free (vals);

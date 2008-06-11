@@ -18,7 +18,7 @@ int fshtinit (shdata *dat, int deg) {
 
 	/* The number of theta samples isn't always the same as the number of
 	 * spherical harmonic degrees used. */
-	dat->ntheta = deg;
+	dat->ntheta = 2 * deg - 1;
 
 	/* This is actually one more than the maximum degree. */
 	dat->deg = deg;
