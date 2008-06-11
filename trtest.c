@@ -43,29 +43,29 @@ void readat (FILE *input, complex double *vals, int n) {
 }
 
 int main (int argc, char **argv) {
-	int l = 10, i, j, m = 0, n = 0;
+	int l, i, j, m, n;
 	shdata dat;
 	complex double *vals, *trans, kr, ka;
 	double sdir[3] = { 0.0, 0.0, 1.0 }, trlen = 10;
+	FILE *output;
+	char fname[1024], *ffmt;
+
+	if (argc < 4) return EXIT_FAILURE;
 
 	/* Read some parameters. */
-	if (argc > 1) ka = 2 * M_PI * strtod (argv[1], NULL);
-	if (argc > 2) trlen = strtod (argv[2], NULL);
-	if (argc > 3) n = atoi (argv[3]);
-	if (argc > 4) m = atoi (argv[4]);
+	ka = 2 * M_PI * strtod (argv[1], NULL);
+	trlen = strtod (argv[2], NULL);
+	ffmt = argv[3];
 
 	l = exband (ka, 6);
 
-	if (n < 0 || n >= l) n = 0;
-	if (m < -n || m > n) m = 0;
-
-	fprintf (stderr, "Translation of (%d,%d), maximum %d harmonics.\n", n, m, l);
+	fprintf (stderr, "Translation of %d harmonics.\n", l);
 
 	fshtinit (&dat, l);
 
 	j = dat.ntheta * dat.nphi;
 
-	vals = calloc (2 * j, sizeof(complex double));
+	vals = malloc (2 * j * sizeof(complex double));
 	trans = vals + j;
 
 	kr = 2 * M_PI * trlen;
@@ -73,25 +73,79 @@ int main (int argc, char **argv) {
 	/* Build the FMM translator in the z-direction. */
 	translator (trans, 2 * dat.deg - 1, dat.ntheta, dat.nphi, dat.theta, kr, sdir);
 
-	if (m >= 0) vals[n * dat.nphi + m] = 1.0;
-	else vals[(n + 1) * dat.nphi + m] = 1.0;
+	for (n = 0; n < l; ++n) {
+		fprintf (stderr, "Translating (%d,0)\n", n);
+		memset (vals, 0, j * sizeof(complex double));
+		vals[n * dat.nphi] = 1.0;
+		
+		/* Scale the coefficients in preparation for an inverse transform. */
+		shscale (vals, &dat, -1);
+		
+		/* Translate from SH coefficients to angular samples. */
+		ifsht (vals, &dat);
+		
+		/* Perform the translation. */
+		for (i = 0; i < j; ++i) vals[i] *= trans[i]; 
+		
+		/* Translate from angular samples back to SH coefficients. */
+		ffsht (vals, &dat);
+		
+		/* Scale the coefficients to get the appropriate values. */
+		shscale (vals, &dat, 1);
 
-	/* Scale the coefficients in preparation for an inverse transform. */
-	shscale (vals, &dat, -1);
+		sprintf (fname, ffmt, n, 0);
+		output = fopen (fname, "w");
+		prtdata (output, vals, dat.deg, dat.nphi, NULL);
+		fclose (output);
 
-	/* Translate from SH coefficients to angular samples. */
-	ifsht (vals, &dat);
+		for (m = 1; m <= n; ++m) {
+			fprintf (stderr, "Translating (%d,%d)\n", n, m);
+			memset (vals, 0, j * sizeof(complex double));
+			vals[n * dat.nphi + m] = 1.0;
+			
+			/* Scale the coefficients in preparation for an inverse transform. */
+			shscale (vals, &dat, -1);
+			
+			/* Translate from SH coefficients to angular samples. */
+			ifsht (vals, &dat);
+			
+			/* Perform the translation. */
+			for (i = 0; i < j; ++i) vals[i] *= trans[i];
+			
+			/* Translate from angular samples back to SH coefficients. */
+			ffsht (vals, &dat);
+			
+			/* Scale the coefficients to get the appropriate values. */
+			shscale (vals, &dat, 1);
+			sprintf (fname, ffmt, n, m);
+			output = fopen (fname, "w");
+			prtdata (output, vals, dat.deg, dat.nphi, NULL);
+			fclose (output);
 
-	/* Perform the translation. */
-	for (i = 0; i < j; ++i) vals[i] *= trans[i];
+			fprintf (stderr, "Translating (%d,%d)\n", n, -m);
+			memset (vals, 0, j * sizeof(complex double));
+			vals[(n + 1) * dat.nphi - m] = 1.0;
+			/* Scale the coefficients in preparation for an inverse transform. */
+			shscale (vals, &dat, -1);
+			
+			/* Translate from SH coefficients to angular samples. */
+			ifsht (vals, &dat);
+			
+			/* Perform the translation. */
+			for (i = 0; i < j; ++i) vals[i] *= trans[i];
+			
+			/* Translate from angular samples back to SH coefficients. */
+			ffsht (vals, &dat);
+			
+			/* Scale the coefficients to get the appropriate values. */
+			shscale (vals, &dat, 1);
+			sprintf (fname, ffmt, n, -m);
+			output = fopen (fname, "w");
+			prtdata (output, vals, dat.deg, dat.nphi, NULL);
+			fclose (output);
+		}
+	}
 
-	/* Translate from angular samples back to SH coefficients. */
-	ffsht (vals, &dat);
-
-	/* Scale the coefficients to get the appropriate values. */
-	shscale (vals, &dat, 1);
-
-	prtdata (stdout, vals, dat.deg, dat.nphi, NULL);
 
 	fshtfree (&dat);
 	free (vals);
