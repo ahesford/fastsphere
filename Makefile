@@ -11,8 +11,8 @@ CFLAGS= -O2 -march=nocona -mtune=nocona -I/opt/local/include
 LFLAGS= -L/opt/local/lib -L../spherepack31 -L../libamos
 LIBS= -lspherepack -lgsl -lfftw3 -lamos
 
-SHOBJS= fsht.o shtest.o
-TROBJS= fsht.o translator.o trtest.o spbessel.o
+SHOBJS= fsht.o shtest.o util.o
+TROBJS= fsht.o translator.o trtest.o spbessel.o util.o
 OBJS= spreflect.o
 
 SHTEST= shtest
