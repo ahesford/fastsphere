@@ -10,7 +10,7 @@ int exband (complex double kr, double ndig) {
 	double akr;
 	int l;
 	
-	akr = cabs (kr);
+	akr = creal (kr);
 	ndig *= ndig;
 
 	l = ceil (akr + 1.8 * cbrt(ndig * akr));
@@ -45,16 +45,13 @@ int legpoly (int n, double x, double *v) {
 	return 0;
 }
 
-/* Computes the wave number from the sound speed, attenuation and frequency. */
-complex double buildkvec (double c, double alpha, double f) {
+/* Computes the wave number from the relative sound speed and
+ * unitless (dB) attenuation coefficient. */
+complex double buildkvec (double cr, double alpha) {
 	double kr, ki;
 
-	/* Loss is in dB per cm * MHz. Hence, for frequency f in MHz, the
-	 * imaginary wave number is ki = -100 * alpha * f * log(10) / 20.
-	 * Note that -100 / 20 = 5. See fastsphere.h for more info, or Joe
-	 * Wilbur's thesis and code. */
-	ki = -5 * log(10) * alpha * f;
-	kr = 2 * M_PI * f / c;
+	ki = -log(10) * alpha / 20;
+	kr = 2 * M_PI / cr;
 
 	return kr + I * ki;
 }

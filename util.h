@@ -10,5 +10,5 @@
 int exband (complex double, double);
 int legpoly (int, double, double *);
 
-complex double buildkvec (double, double, double);
+complex double buildkvec (double, double);
 #endif /* __UTIL_H_ */

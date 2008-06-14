@@ -7,35 +7,33 @@
 
 typedef struct {
 	/* The complex wave number is k = kr + i * ki. The parts are defined:
-	 * 	kr = 2 * pi * f / c, where c is the real sound speed
-	 * 	ki = -alpha * 1e-4 * f * log (10) / 20, where alpha is
-	 * 	attenuation in dB per cm * MHz.
-	 * Thus exp(i * k * x) = exp(i * kr * x) / 10^(A * f * x / 20).
-	 * A is alpha * 1e-4, and is attenuation in dB per m * Hz. */
+	 * 	kr = 2 * pi / cr, where cr is the relative sound speed
+	 * 	ki = -alpha * log (10) / 20, where alpha is attenuation in dB
+	 * 	per wavelength.
+	 * Thus exp(i * k * x) = exp(i * kr * x) / 10^(alpha * x / 20). */
 	complex double k;
 
 	/* Reflection coefficients for spherical harmonics. */
 	complex double *reflect;
 
-	double r; 	/* Radius. */
-	double c;	/* Sound speed. */
-	double alpha;	/* Attenuation (dB per cm * MHz). */
-	double gamma;	/* Outside:inside contrast ratio, cb / c. */
+	double r; 	/* Radius in wavelengths. */
+	double c;	/* Sound speed relative to background. */
+	double alpha;	/* Attenuation (dB per wavelength). */
 
 	shdata *shinfo;	/* Information for spherical harmonic transforms. */
 } sptype;
 
 typedef struct {
 	sptype *spdesc;	/* Pointer to sphere type structure. */
-	double cen[3];	/* Location of the center of the sphere. */
+	double cen[3];	/* Location of the center of the sphere (wavelengths). */
 } spscat;
 
 typedef struct {
 	/* The complex wave number. See above for description. */
 	complex double k;
 
-	double c;	/* Sound speed. */
-	double alpha;	/* Attenuation (dB per cm * MHz). */
+	double cabs;	/* Absolute sound speed (m/s). */
+	double alpha;	/* Attenuation (dB per wavelength). */
 } bgtype;
 
 typedef struct {

@@ -49,38 +49,16 @@ int nextline (FILE *input, char *buf, int maxlen) {
 int readcfg (FILE *cfgin, sptype **spt, spscat **spl, bgtype *bg, exctparm *exct) {
 	int nsptype = 0, nspheres = 0, i, tp;
 	char buf[BUFLEN];
+	sptype *stptr;
+	spscat *ssptr;
 
 	if (!nextline (cfgin, buf, BUFLEN)) return 0;
 
 	/* Background sound speed and attenuation. */
-	if (sscanf (buf, "%lf %lf", &(bg->c), &(bg->alpha)) != 2) return 0;
+	if (sscanf (buf, "%lf %lf", &(bg->cabs), &(bg->alpha)) != 2) return 0;
 
-	if (!nextline (cfgin, buf, BUFLEN)) return 0;
-
-	/* The number of spheres, and the number of unique sphere types. */
-	if (sscanf (buf, "%d %d", &nspheres, &nsptype) != 2) return 0;
-
-	/* Allocate the sphere list and type list. */
-	*spt = malloc (nsptype * sizeof (sptype));
-	*spl = malloc (nspheres * sizeof (spscat));
-
-	for (i = 0; i < nsptype; ++i) {
-		if (!nextline (cfgin, buf, BUFLEN)) return 0;
-
-		/* The radius, sound speed and attenuation of each sphere. */
-		if (sscanf (buf, "%lf %lf %lf", &((*spt)[i].r),
-				&((*spt)[i].c), &((*spt)[i].alpha)) != 3)
-			return 0;
-	}
-
-	for (i = 0; i < nspheres; ++i) {
-		if (!nextline (cfgin, buf, BUFLEN)) return 0;
-
-		/* The type and center coordinates of each sphere. */
-		if (sscanf (buf, "%d %lf %lf %lf", &tp, (*spl)[i].cen,
-				(*spl)[i].cen + 1, (*spl)[i].cen + 2) != 4)
-			return 0;
-	}
+	/* Convert attenuation from dB per cm * MHz to dB per wavelength. */
+	bg->alpha *= 1e-4 * bg->cabs;
 
 	if (!nextline (cfgin, buf, BUFLEN)) return 0;
 	
@@ -92,12 +70,58 @@ int readcfg (FILE *cfgin, sptype **spt, spscat **spl, bgtype *bg, exctparm *exct
 	exct->theta *= M_PI / 180.0;
 	exct->phi *= M_PI / 180;
 
-	/* Build the background wave number. */
-	bg->k = buildkvec (bg->c, bg->alpha, exct->f);
+	/* Convert excitation frequency into Hz. */
+	exct->f *= 1e6;
+
+	if (!nextline (cfgin, buf, BUFLEN)) return 0;
+
+	/* The number of spheres, and the number of unique sphere types. */
+	if (sscanf (buf, "%d %d", &nspheres, &nsptype) != 2) return 0;
+
+	/* Allocate the sphere list and type list. */
+	*spt = malloc (nsptype * sizeof (sptype));
+	*spl = malloc (nspheres * sizeof (spscat));
+
+	for (i = 0, stptr = *spt; i < nsptype; ++i, ++stptr) {
+		if (!nextline (cfgin, buf, BUFLEN)) return 0;
+
+		/* The radius, sound speed and attenuation of each sphere type. */
+		if (sscanf (buf, "%lf %lf %lf", &(stptr->r), &(stptr->c),
+					&(stptr->alpha)) != 3)
+			return 0;
+
+		/* Convert radius to wavelengths. */
+		stptr->r *= exct->f / bg->cabs;
+
+		/* Convert sound speed to relative sound speed. */
+		stptr->c /= bg->cabs;
+
+		/* Convert attenuation to dB per wavelength. */
+		stptr->alpha *= 1e-4 * bg->cabs;
+	}
+
+	for (i = 0, ssptr = *spl; i < nspheres; ++i, ++ssptr) {
+		if (!nextline (cfgin, buf, BUFLEN)) return 0;
+
+		/* The type and center coordinates of each sphere. */
+		if (sscanf (buf, "%d %lf %lf %lf", &tp, ssptr->cen,
+					ssptr->cen + 1, ssptr->cen + 2) != 4)
+			return 0;
+
+		ssptr->spdesc = (*spt) + tp;
+
+		/* Convert coordinates to wavelengths. */
+		(ssptr->cen)[0] *= exct->f / bg->cabs;
+		(ssptr->cen)[1] *= exct->f / bg->cabs;
+		(ssptr->cen)[2] *= exct->f / bg->cabs;
+	}
+
+	/* Build the background wave number. The relative sound speed is unity. */
+	bg->k = buildkvec (1.0, bg->alpha);
 
 	/* Build the wave numbers for each type of sphere. */
-	for (i = 0; i < nsptype; ++i)
-		(*spt)[i].k = buildkvec ((*spt)[i].c, (*spt)[i].alpha, exct->f);
+	for (i = 0, stptr = *spt; i < nsptype; ++i, ++stptr)
+		stptr->k = buildkvec (stptr->c, stptr->alpha);
 
 	return nspheres;
 }
