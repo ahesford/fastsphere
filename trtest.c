@@ -61,7 +61,7 @@ int main (int argc, char **argv) {
 
 	fprintf (stderr, "Translation of %d harmonics.\n", l);
 
-	fshtinit (&dat, l);
+	fshtinit (&dat, l, 2 * l - 1);
 
 	j = dat.ntheta * dat.nphi;
 
@@ -71,7 +71,7 @@ int main (int argc, char **argv) {
 	kr = 2 * M_PI * trlen;
 
 	/* Build the FMM translator in the z-direction. */
-	translator (trans, 2 * dat.deg - 1, dat.ntheta, dat.nphi, dat.theta, kr, sdir);
+	translator (trans, 2 * l - 1, dat.ntheta, dat.nphi, dat.theta, kr, sdir);
 
 	for (n = 0; n < l; ++n) {
 		fprintf (stderr, "Translating (%d,0)\n", n);

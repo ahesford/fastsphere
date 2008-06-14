@@ -11,7 +11,7 @@ typedef struct {
 	fftw_plan fplan, bplan;
 } shdata;
 
-int fshtinit (shdata *, int);
+int fshtinit (shdata *, int, int);
 int fshtfree (shdata *);
 
 int ffsht (complex double *, shdata *);

@@ -13,12 +13,12 @@
 
 void gaqd_ (int *, double *, double *, double *, int *, int *);
 
-int fshtinit (shdata *dat, int deg) {
+int fshtinit (shdata *dat, int deg, int ntheta) {
 	int ierr;
 
 	/* The number of theta samples isn't always the same as the number of
 	 * spherical harmonic degrees used. */
-	dat->ntheta = 2 * deg - 1;
+	dat->ntheta = ntheta;
 
 	/* This is actually one more than the maximum degree. */
 	dat->deg = deg;
