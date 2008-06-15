@@ -13,7 +13,7 @@ LIBS= -lspherepack -lgsl -lfftw3 -lamos
 
 SHOBJS= fsht.o shtest.o util.o
 TROBJS= fsht.o translator.o trtest.o spbessel.o util.o
-OBJS= spreflect.o config.o init.o
+OBJS= spreflect.o config.o init.o fastsphere.o
 
 SHTEST= shtest
 TRTEST= trtest

@@ -62,8 +62,8 @@ int sphbldfmm (complex double ***trans, spscat *sph, int nsph,
 
 	/* Start with the first valid translator. */
 	for (k = 1; k < nsq; ++k) {
-		j = k / nsph;		/* Source sphere. */
-		i = mod (k, nsph);	/* Destination sphere. */
+		j = k / nsph;	/* Source sphere. */
+		i = k % nsph;	/* Destination sphere. */
 
 		if (i == j) {
 			/* This translation is never used. */
