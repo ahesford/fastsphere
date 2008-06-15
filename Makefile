@@ -13,12 +13,12 @@ LIBS= -lspherepack -lgsl -lfftw3 -lamos
 
 SHOBJS= fsht.o shtest.o util.o
 TROBJS= fsht.o translator.o trtest.o spbessel.o util.o
-OBJS= spreflect.o
+OBJS= spreflect.o config.o init.o
 
 SHTEST= shtest
 TRTEST= trtest
 
-default: shtest trtest
+default: $(OBJS) shtest trtest
 
 shtest: $(SHOBJS)
 	$(FF) $(LFLAGS) -o $(SHTEST) $(SHOBJS) $(LIBS)

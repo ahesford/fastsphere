@@ -19,8 +19,6 @@ typedef struct {
 	double r; 	/* Radius in wavelengths. */
 	double c;	/* Sound speed relative to background. */
 	double alpha;	/* Attenuation (dB per wavelength). */
-
-	shdata *shinfo;	/* Information for spherical harmonic transforms. */
 } sptype;
 
 typedef struct {

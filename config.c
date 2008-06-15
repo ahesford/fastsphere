@@ -8,6 +8,7 @@
 
 #include "fastsphere.h"
 #include "util.h"
+#include "config.h"
 
 #define BUFLEN 1024
 
@@ -46,8 +47,9 @@ int nextline (FILE *input, char *buf, int maxlen) {
 	return 0;
 }
 
-int readcfg (FILE *cfgin, sptype **spt, spscat **spl, bgtype *bg, exctparm *exct) {
-	int nsptype = 0, nspheres = 0, i, tp;
+int readcfg (FILE *cfgin, int *nspheres, int *nsptype, sptype **spt,
+		spscat **spl, bgtype *bg, exctparm *exct) {
+	int i, tp;
 	char buf[BUFLEN];
 	sptype *stptr;
 	spscat *ssptr;
@@ -76,13 +78,13 @@ int readcfg (FILE *cfgin, sptype **spt, spscat **spl, bgtype *bg, exctparm *exct
 	if (!nextline (cfgin, buf, BUFLEN)) return 0;
 
 	/* The number of spheres, and the number of unique sphere types. */
-	if (sscanf (buf, "%d %d", &nspheres, &nsptype) != 2) return 0;
+	if (sscanf (buf, "%d %d", nspheres, nsptype) != 2) return 0;
 
 	/* Allocate the sphere list and type list. */
-	*spt = malloc (nsptype * sizeof (sptype));
-	*spl = malloc (nspheres * sizeof (spscat));
+	*spt = malloc (*nsptype * sizeof (sptype));
+	*spl = malloc (*nspheres * sizeof (spscat));
 
-	for (i = 0, stptr = *spt; i < nsptype; ++i, ++stptr) {
+	for (i = 0, stptr = *spt; i < *nsptype; ++i, ++stptr) {
 		if (!nextline (cfgin, buf, BUFLEN)) return 0;
 
 		/* The radius, sound speed and attenuation of each sphere type. */
@@ -100,7 +102,7 @@ int readcfg (FILE *cfgin, sptype **spt, spscat **spl, bgtype *bg, exctparm *exct
 		stptr->alpha *= 1e-4 * bg->cabs;
 	}
 
-	for (i = 0, ssptr = *spl; i < nspheres; ++i, ++ssptr) {
+	for (i = 0, ssptr = *spl; i < *nspheres; ++i, ++ssptr) {
 		if (!nextline (cfgin, buf, BUFLEN)) return 0;
 
 		/* The type and center coordinates of each sphere. */
@@ -120,8 +122,8 @@ int readcfg (FILE *cfgin, sptype **spt, spscat **spl, bgtype *bg, exctparm *exct
 	bg->k = buildkvec (1.0, bg->alpha);
 
 	/* Build the wave numbers for each type of sphere. */
-	for (i = 0, stptr = *spt; i < nsptype; ++i, ++stptr)
+	for (i = 0, stptr = *spt; i < *nsptype; ++i, ++stptr)
 		stptr->k = buildkvec (stptr->c, stptr->alpha);
 
-	return nspheres;
+	return *nspheres;
 }
