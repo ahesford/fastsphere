@@ -8,17 +8,22 @@ CFLAGS= -O2 -march=nocona -mtune=nocona -I/opt/local/include
 #FFLAGS= -O2 -mcpu=G4 -mtune=G4
 #CFLAGS= -O2 -mcpu=G4 -mtune=G4 -I/opt/local/include
 
-LFLAGS= -L/opt/local/lib -L../spherepack31 -L../libamos
-LIBS= -lspherepack -lgsl -lfftw3 -lamos
+LFLAGS= -L/opt/local/lib -L../spherepack31 -L../libamos -L../gmres
+LIBS= -lgmres -lamos -lspherepack -lgsl -lfftw3 -framework Accelerate
 
 SHOBJS= fsht.o shtest.o util.o
 TROBJS= fsht.o translator.o trtest.o spbessel.o util.o
-OBJS= spreflect.o config.o init.o fastsphere.o scatmat.o
+OBJS= config.o fastsphere.o fsht.o init.o scatmat.o spbessel.o spreflect.o \
+      translator.o util.o
 
 SHTEST= shtest
 TRTEST= trtest
+FASTSPHERE= fastsphere
 
-default: $(OBJS) shtest trtest
+default: fastsphere shtest trtest
+
+fastsphere: $(OBJS)
+	$(FF) $(LFLAGS) -o $(FASTSPHERE) $(OBJS) $(LIBS)
 
 shtest: $(SHOBJS)
 	$(FF) $(LFLAGS) -o $(SHTEST) $(SHOBJS) $(LIBS)
@@ -27,7 +32,8 @@ trtest: $(TROBJS)
 	$(FF) $(LFLAGS) -o $(TRTEST) $(TROBJS) $(LIBS)
 
 clean:
-	$(RM) $(SHTEST) $(TRTEST) $(SHOBJS) $(TROBJS) $(OBJS) *.core core
+	$(RM) $(FASTSPHERE) $(OBJS) *.core core \
+		$(SHTEST) $(SHOBJS) $(TRTEST) $(TROBJS) 
 
 .SUFFIXES: .o .f .c
 
