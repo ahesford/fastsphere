@@ -13,6 +13,24 @@ void initzgmres_ (int *, double *);
 void zgemv_ (char *, int *, int *, complex double *, complex double *, int *,
 		complex double *, int *, complex double *, complex double *, int *);
 
+int buildrhs (complex double *rhs, spscat *spl, int nsph, shdata *shtr) {
+	int i, j, nterm;
+	complex double *vptr;
+
+	nterm = shtr->ntheta * shtr->nphi;
+
+	for (i = 0; i < nsph; ++i) {
+		vptr = rhs + i * nterm;
+
+		/* Multiply by the reflection coefficient in SH space. */
+		ffsht (vptr, shtr);
+		spreflect (vptr, vptr, (spl + i)->spdesc->reflect, shtr->deg, shtr->nphi);
+		ifsht (vptr, shtr);
+	}
+
+	return nsph;
+}
+
 int scatmat (complex double *vout, complex double *vin, spscat *spl,
 		int nsph, complex **trans, shdata *shtr) {
 	int i, j, k, off, nterm;
@@ -25,21 +43,28 @@ int scatmat (complex double *vout, complex double *vin, spscat *spl,
 	for (i = 0; i < nsph; ++i) {
 		voptr = vout + i * nterm;
 
-		/* Compute the inverse reflection of the local wave. */
+		/* Copy the outbound field at the sphere. */
 		memcpy (voptr, vin + i * nterm, nterm * sizeof(complex double));
-		ffsht (voptr, shtr);
-		spinvrfl (voptr, voptr, (spl + i)->spdesc->reflect, shtr->deg, shtr->nphi);
-		ifsht (voptr, shtr);
+		memset (buf, 0, nterm * sizeof(complex double));
 
-		/* Subtract off the translated fields from other spheres. */
+		/* Add up the translated fields. */
 		for (j = 0; j < nsph; ++j) {
 			if (j == i) continue;
 			off = j * nsph + i;
-			viptr = vin + i * nterm;
+			viptr = vin + j * nterm;
 
 			for (k = 0; k < nterm; ++k) 
-				voptr[k] -= trans[off][k] * viptr[k];
+				buf[k] += trans[off][k] * viptr[k];
 		}
+
+		/* Apply the reflection coefficient in SH space. */
+		ffsht (buf, shtr);
+		spreflect (buf, buf, (spl + i)->spdesc->reflect, shtr->deg, shtr->nphi);
+		ifsht (buf, shtr);
+
+		/* Subtract this from the outbound field. */
+		for (k = 0; k < nterm; ++k)
+			voptr[k] -= buf[k];
 	}
 
 	free (buf);
@@ -61,7 +86,7 @@ int itsolve (complex double *sol, complex double *rhs, spscat *spl, int nsph,
 
 	initzgmres_ (icntl, cntl);
 
-	icntl[2] = 6; /* Print convergence history. */
+	icntl[2] = 6; /* Print information to stdout. */
 	icntl[3] = 0; /* No preconditioner. */
 	icntl[4] = 0; /* Use MGS for orthogonalization. */
 	icntl[5] = 1; /* The incident field is the initial guess. */

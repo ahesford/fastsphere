@@ -26,12 +26,19 @@ int main (int argc, char **argv) {
 	rhs = calloc (2 * n, sizeof(complex double));
 	sol = rhs + n;
 
-	rhs[0] = 1.0;
+	for (i = 0; i < shtr.nphi; ++i)
+		rhs[i] = 1.0 / (double)shtr.nphi;
+
+	buildrhs (rhs, slist, nspheres, &shtr);
 
 	itsolve (sol, rhs, slist, nspheres, trans, &shtr, &itc);
 
+	fflush (stdout);
+
 	for (i = 0; i < n; ++i)
 		printf ("%20.15f %20.15f\n", creal (sol[i]), cimag (sol[i]));
+
+	fflush (stdout);
 
 	clrspheres (sparms, nsptype);
 	free (*trans);
