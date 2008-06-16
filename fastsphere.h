@@ -35,8 +35,8 @@ typedef struct {
 } bgtype;
 
 typedef struct {
-	double f;		/* Excitation frequency. */
-	double theta, phi;	/* Excitation direction. */
+	double f;	/* Excitation frequency. */
+	double cen[3];	/* Excitation location. */
 } exctparm;
 
 #endif /* __FASTSPHERE_H_ */

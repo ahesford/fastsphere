@@ -3,8 +3,8 @@ CC?= gcc
 AR?= ar
 RM?= rm -f
 
-FFLAGS= -O2 -march=nocona -mtune=nocona
-CFLAGS= -O2 -march=nocona -mtune=nocona -I/opt/local/include
+FFLAGS= -O -march=nocona -mtune=nocona
+CFLAGS= -O -march=nocona -mtune=nocona -I/opt/local/include
 #FFLAGS= -O2 -mcpu=G4 -mtune=G4
 #CFLAGS= -O2 -mcpu=G4 -mtune=G4 -I/opt/local/include
 

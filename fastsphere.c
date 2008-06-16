@@ -10,15 +10,15 @@
 #include "scatmat.h"
 
 int main (int argc, char **argv) {
-	int nspheres, nsptype, n, i, j, nterms;
+	int nspheres, nsptype, n, i, nterm, trunc;
 	sptype *sparms;
 	spscat *slist;
 	bgtype bg;
 	exctparm exct;
 	shdata shtr;
 	itconf itc;
-	complex double **trans, *rhs, *sol, val;
-	double sdir[3], phase;
+	complex double **trans, *rhs, *sol, kr;
+	double sdir[3], rsrc;
 
 	readcfg (stdin, &nspheres, &nsptype, &sparms, &slist, &bg, &exct);
 	sphinit (sparms, nsptype, &bg, &shtr);
@@ -26,24 +26,29 @@ int main (int argc, char **argv) {
 
 	itc.iter = 100; itc.restart = 10; itc.eps = 1e-6;
 
-	nterms = shtr.ntheta * shtr.nphi;
-	n = nspheres * nterms;
+	nterm = shtr.ntheta * shtr.nphi;
+	n = nspheres * nterm;
 	rhs = calloc (2 * n, sizeof(complex double));
 	sol = rhs + n;
 	
-	sdir[0] = cos(exct.phi) * sin(exct.theta);
-	sdir[1] = sin(exct.phi) * sin(exct.theta);
-	sdir[2] = cos(exct.theta);
+	/* Build a translator from the source location to each sphere.
+	 * This is the incoming incident field for each sphere. */
+	trunc = 2 * shtr.deg - 1;
+	for (i = 0; i < nspheres; ++i) {
+		sdir[0] = slist[i].cen[0] - exct.cen[0];
+		sdir[1] = slist[i].cen[1] - exct.cen[1];
+		sdir[2] = slist[i].cen[2] - exct.cen[2];
 
-	/* Set the excitation for each sphere. */
-	for (j = 0; j < nspheres; ++j) {
-		phase = sdir[0] * slist[j].cen[0] + sdir[1] * slist[j].cen[1]
-			+ sdir[2] * slist[j].cen[2];
-		val = cexp (-I * phase) / (double)shtr.nphi;
-		for (i = 0; i < shtr.nphi; ++i)
-			rhs[i] = val;
+		rsrc = sqrt (sdir[0] * sdir[0] + sdir[1] * sdir[1] + sdir[2] * sdir[2]);
+		sdir[0] /= rsrc; sdir[1] /= rsrc; sdir[2] /= rsrc;
+		kr = bg.k * rsrc;
+
+		translator (rhs + i * nterm, trunc, shtr.ntheta,
+				shtr.nphi, shtr.theta, kr, sdir);
 	}
 
+	/* Convert the incoming incident field to the reflected incident
+	 * field, which is the RHS for this problem. */
 	buildrhs (rhs, slist, nspheres, &shtr);
 
 	itsolve (sol, rhs, slist, nspheres, trans, &shtr, &itc);

@@ -65,12 +65,9 @@ int readcfg (FILE *cfgin, int *nspheres, int *nsptype, sptype **spt,
 	if (!nextline (cfgin, buf, BUFLEN)) return 0;
 	
 	/* The excitation frequency and direction (theta and phi, in degrees). */
-	if (sscanf (buf, "%lf %lf %lf", &(exct->f), &(exct->theta), &(exct->phi)) != 3)
+	if (sscanf (buf, "%lf %lf %lf %lf", &(exct->f), exct->cen,
+				exct->cen + 1, exct->cen + 2) != 4)
 		return 0;
-
-	/* Convert the excitation angles to radians. */
-	exct->theta *= M_PI / 180.0;
-	exct->phi *= M_PI / 180;
 
 	/* Convert excitation frequency into Hz. */
 	exct->f *= 1e6;

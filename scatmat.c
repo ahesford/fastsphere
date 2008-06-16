@@ -129,7 +129,7 @@ int itsolve (complex double *sol, complex double *rhs, spscat *spl, int nsph,
 
 	memcpy (sol, zwork, n * sizeof(complex double));
 
-	printf ("ZGMRES: %d iterations, %0.6g PBE, %0.6g BE.\n", info[0], rinfo[0], rinfo[1]);
+	printf ("ZGMRES: %d iterations, %0.6g PBE, %0.6g BE.\n", info[1], rinfo[0], rinfo[1]);
 
 	free (zwork);
 }
