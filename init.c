@@ -24,7 +24,9 @@ int sphinit (sptype *spt, int nspt, bgtype *bg, shdata *shtr) {
 	fshtinit (shtr, deg, ntheta);
 
 	/* Initialize and populate the SH reflection coefficients. */
-	for (i = 0, sptr = spt; i < nspt; ++i, ++sptr) {
+#pragma omp parallel for private(i,sptr) default(shared)
+	for (i = 0; i < nspt; ++i) {
+		sptr = spt + i;
 		sptr->reflect = malloc (deg * sizeof(complex double));
 		spbldrc (sptr->reflect, bg->k, sptr->k, sptr->r, deg);
 	}
@@ -34,16 +36,15 @@ int sphinit (sptype *spt, int nspt, bgtype *bg, shdata *shtr) {
 
 void clrspheres (sptype *spt, int nspt) {
 	int i;
-	sptype *sptr;
 
-	for (i = 0, sptr = spt; i < nspt; ++i, ++sptr) free (sptr->reflect);
+#pragma omp parallel for private(i) default(shared)
+	for (i = 0; i < nspt; ++i) free (spt[i].reflect);
 }
 
 int sphbldfmm (complex double ***trans, spscat *sph, int nsph,
 		bgtype *bg, shdata *shtr) {
 	int i, j, k, nsq, nterm, trunc;
-	complex double kr, *tptr;
-	double sdir[3], dist;
+	complex double *tptr;
 	long ntrans;
 
 	nsq = nsph * nsph;
@@ -60,16 +61,36 @@ int sphbldfmm (complex double ***trans, spscat *sph, int nsph,
 	**trans = malloc (ntrans * sizeof(complex double));
 	tptr = **trans;
 
-	/* Start with the first valid translator. */
+	/* Set up the translator pointers into the backing store.
+	 * This is a separate loop because the construction loop
+	 * should be parallelized. */
 	for (k = 1; k < nsq; ++k) {
 		j = k / nsph;	/* Source sphere. */
 		i = k % nsph;	/* Destination sphere. */
 
 		if (i == j) {
-			/* This translation is never used. */
 			(*trans)[k] = NULL;
 			continue;
 		}
+
+		(*trans)[k] = tptr;
+		tptr += nterm;
+	}
+
+#pragma omp parallel private(i,j,k) default(shared)
+{
+	/* These variables are private. */
+	complex double kr;
+	double sdir[3], dist;
+
+	/* Start with the first valid translator. */
+#pragma omp for
+	for (k = 1; k < nsq; ++k) {
+		j = k / nsph;	/* Source sphere. */
+		i = k % nsph;	/* Destination sphere. */
+
+		/* This translation is never used. */
+		if (i == j) continue;
 
 		/* Translation direction. */
 		sdir[0] = sph[i].cen[0] - sph[j].cen[0];
@@ -77,22 +98,17 @@ int sphbldfmm (complex double ***trans, spscat *sph, int nsph,
 		sdir[2] = sph[i].cen[2] - sph[j].cen[2];
 
 		/* Translation distance. */
-		dist = sdir[0] * sdir[0] + sdir[1] * sdir[1] + sdir[2] * sdir[2];
-		dist = sqrt(dist);
-
+		dist = sqrt(sdir[0] * sdir[0] + sdir[1] * sdir[1] + sdir[2] * sdir[2]);
 		kr = bg->k * dist;
 
 		/* Normalize translation direction. */
 		sdir[0] /= dist; sdir[1] /= dist; sdir[2] /= dist;
 
 		/* Build the translator. */
-		translator (tptr, trunc, shtr->ntheta, shtr->nphi,
+		translator ((*trans)[k], trunc, shtr->ntheta, shtr->nphi,
 				shtr->theta, kr, sdir);
-
-		/* Set the pointer to the translator. */
-		(*trans)[k] = tptr;
-		tptr += nterm;
 	}
+}
 
 	return ntrans;
 }
