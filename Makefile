@@ -3,12 +3,12 @@ CC?= gcc
 AR?= ar
 RM?= rm -f
 
-FFLAGS= -O -march=nocona -mtune=nocona
-CFLAGS= -O -march=nocona -mtune=nocona -I/opt/local/include
-#FFLAGS= -O2 -mcpu=G4 -mtune=G4
-#CFLAGS= -O2 -mcpu=G4 -mtune=G4 -I/opt/local/include
+OPTFLAGS= -fopenmp -O -march=nocona -mtune=nocona
+FFLAGS= $(OPTFLAGS)
+CFLAGS= $(OPTFLAGS) -I/opt/local/include -I/usr/local/include
 
-LFLAGS= -L/opt/local/lib -L../spherepack31 -L../libamos -L../gmres
+LFLAGS= $(OPTFLAGS) -L/opt/local/lib -L/usr/local/lib -L../spherepack31 \
+	-L../libamos -L../gmres
 LIBS= -lgmres -lamos -lspherepack -lgsl -lfftw3 -framework Accelerate
 
 SHOBJS= fsht.o shtest.o util.o

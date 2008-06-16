@@ -14,11 +14,12 @@ void zgemv_ (char *, int *, int *, complex double *, complex double *, int *,
 		complex double *, int *, complex double *, complex double *, int *);
 
 int buildrhs (complex double *rhs, spscat *spl, int nsph, shdata *shtr) {
-	int i, j, nterm;
+	int i, nterm;
 	complex double *vptr;
 
 	nterm = shtr->ntheta * shtr->nphi;
 
+#pragma omp parallel for private(i,vptr) default(shared)
 	for (i = 0; i < nsph; ++i) {
 		vptr = rhs + i * nterm;
 

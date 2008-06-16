@@ -17,8 +17,7 @@ int main (int argc, char **argv) {
 	exctparm exct;
 	shdata shtr;
 	itconf itc;
-	complex double **trans, *rhs, *sol, kr;
-	double sdir[3], rsrc;
+	complex double **trans, *rhs, *sol;
 
 	readcfg (stdin, &nspheres, &nsptype, &sparms, &slist, &bg, &exct);
 	sphinit (sparms, nsptype, &bg, &shtr);
@@ -34,6 +33,13 @@ int main (int argc, char **argv) {
 	/* Build a translator from the source location to each sphere.
 	 * This is the incoming incident field for each sphere. */
 	trunc = 2 * shtr.deg - 1;
+
+#pragma omp parallel private(i) default(shared)
+{
+	/* These variables are private. */
+	double sdir[3], rsrc;
+	complex double kr;
+
 	for (i = 0; i < nspheres; ++i) {
 		sdir[0] = slist[i].cen[0] - exct.cen[0];
 		sdir[1] = slist[i].cen[1] - exct.cen[1];
@@ -46,6 +52,7 @@ int main (int argc, char **argv) {
 		translator (rhs + i * nterm, trunc, shtr.ntheta,
 				shtr.nphi, shtr.theta, kr, sdir);
 	}
+}
 
 	/* Convert the incoming incident field to the reflected incident
 	 * field, which is the RHS for this problem. */
