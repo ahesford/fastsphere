@@ -71,6 +71,11 @@ int readcfg (FILE *cfgin, int *nspheres, int *nsptype, sptype **spt,
 
 	/* Convert excitation frequency into Hz. */
 	exct->f *= 1e6;
+	
+	/* Convert excitation location into wavelengths. */
+	exct->cen[0] *= exct->f / bg->cabs;
+	exct->cen[1] *= exct->f / bg->cabs;
+	exct->cen[2] *= exct->f / bg->cabs;
 
 	if (!nextline (cfgin, buf, BUFLEN)) return 0;
 
