@@ -80,7 +80,7 @@ int itsolve (complex double *sol, complex double *rhs, spscat *spl, int nsph,
 	nterm = shtr->ntheta * shtr->nphi;
 	n = nterm * nsph;
 
-	lwork = itc->restart * itc->restart + itc->restart * (n + 5) + 5 * n + 1;
+	lwork = itc->restart * itc->restart + itc->restart * (n + 5) + 5 * n + 2;
 	zwork = calloc (lwork, sizeof(complex double));
 
 	initzgmres_ (icntl, cntl);

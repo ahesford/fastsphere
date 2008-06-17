@@ -4,10 +4,12 @@
 #include <stdio.h>
 
 #include "fastsphere.h"
+#include "scatmat.h"
 
 int nextline (FILE *, char *, int);
 
-int readcfg (FILE *, int *, int *, sptype **, spscat **, bgtype *, exctparm *);
+int readcfg (FILE *, int *, int *, sptype **, spscat **,
+		bgtype *, exctparm *, itconf *);
 
 int setspht (sptype *, int, int, int);
 int clrspht (sptype *, int);

@@ -19,14 +19,12 @@ int main (int argc, char **argv) {
 	itconf itc;
 	complex double **trans, *rhs, *sol;
 
-	readcfg (stdin, &nspheres, &nsptype, &sparms, &slist, &bg, &exct);
+	readcfg (stdin, &nspheres, &nsptype, &sparms, &slist, &bg, &exct, &itc);
 	fprintf (stderr, "Parsed configuration for %d spheres at %g MHz\n", nspheres, exct.f / 1e6);
 	sphinit (sparms, nsptype, &bg, &shtr);
 	fprintf (stderr, "Initialized spherical harmonic data for degree %d\n", shtr.deg);
 	sphbldfmm (&trans, slist, nspheres, &bg, &shtr);
 	fprintf (stderr, "Built FMM translators for all spheres\n");
-
-	itc.iter = 100; itc.restart = 10; itc.eps = 1e-6;
 
 	nterm = shtr.ntheta * shtr.nphi;
 	n = nspheres * nterm;

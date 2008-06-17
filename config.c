@@ -7,6 +7,7 @@
 #include <string.h>
 
 #include "fastsphere.h"
+#include "scatmat.h"
 #include "util.h"
 #include "config.h"
 
@@ -48,7 +49,7 @@ int nextline (FILE *input, char *buf, int maxlen) {
 }
 
 int readcfg (FILE *cfgin, int *nspheres, int *nsptype, sptype **spt,
-		spscat **spl, bgtype *bg, exctparm *exct) {
+		spscat **spl, bgtype *bg, exctparm *exct, itconf *itc) {
 	int i, tp;
 	char buf[BUFLEN];
 	sptype *stptr;
@@ -65,7 +66,7 @@ int readcfg (FILE *cfgin, int *nspheres, int *nsptype, sptype **spt,
 
 	if (!nextline (cfgin, buf, BUFLEN)) return 0;
 	
-	/* The excitation frequency and direction (theta and phi, in degrees). */
+	/* The excitation frequency and source location. */
 	if (sscanf (buf, "%lf %lf %lf %lf", &(exct->f), exct->cen,
 				exct->cen + 1, exct->cen + 2) != 4)
 		return 0;
@@ -77,6 +78,12 @@ int readcfg (FILE *cfgin, int *nspheres, int *nsptype, sptype **spt,
 	exct->cen[0] *= exct->f / bg->cabs;
 	exct->cen[1] *= exct->f / bg->cabs;
 	exct->cen[2] *= exct->f / bg->cabs;
+
+	if (!nextline (cfgin, buf, BUFLEN)) return 0;
+
+	/* The number of iterations, restart and solver tolerance. */
+	if (sscanf (buf, "%d %d %lf", &(itc->iter), &(itc->restart), &(itc->eps)) != 3)
+		return 0;
 
 	if (!nextline (cfgin, buf, BUFLEN)) return 0;
 

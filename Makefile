@@ -1,7 +1,7 @@
-FF?= gfortran-mp-4.2
-CC?= gcc-mp-4.2
-AR?= ar
-RM?= rm -f
+FF= gfortran-mp-4.2
+CC= gcc-mp-4.2
+AR= ar
+RM= rm -f
 
 OPTFLAGS= -fopenmp -O -march=prescott -mtune=prescott
 FFLAGS= $(OPTFLAGS)
