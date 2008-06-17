@@ -15,6 +15,7 @@ void gaqd_ (int *, double *, double *, double *, int *, int *);
 
 int fshtinit (shdata *dat, int deg, int ntheta) {
 	int ierr;
+	complex double *fftbuf;
 
 	/* The number of theta samples isn't always the same as the number of
 	 * spherical harmonic degrees used. */
@@ -30,19 +31,21 @@ int fshtinit (shdata *dat, int deg, int ntheta) {
 	dat->theta = malloc (2 * dat->ntheta * sizeof(double));
 	dat->weights = dat->theta + dat->ntheta;
 
-	/* Allocate the Legendre polynomial values. */
-	dat->lgvals = malloc (dat->deg * sizeof(double));
+	/* Temporarily allocate an FFT data buffer for planning. */
+	fftbuf = fftw_malloc (dat->ntheta * dat->nphi * sizeof(complex double));
 
-	/* Allocate the FFT data buffer. */
-	dat->fftbuf = fftw_malloc (dat->ntheta * dat->nphi * sizeof(complex double));
+	/* Plan the forward and inverse transforms. */
+	dat->fplan = fftw_plan_many_dft (1, &(dat->nphi), dat->ntheta, fftbuf,
+			&(dat->nphi), 1, dat->nphi, fftbuf, &(dat->nphi), 1,
+			dat->nphi, FFTW_FORWARD, FFTW_MEASURE);
 
-	dat->fplan = fftw_plan_many_dft (1, &(dat->nphi), dat->ntheta, dat->fftbuf,
-			&(dat->nphi), 1, dat->nphi, dat->fftbuf, &(dat->nphi),
-			1, dat->nphi, FFTW_FORWARD, FFTW_MEASURE);
+	dat->bplan = fftw_plan_many_dft (1, &(dat->nphi), dat->ntheta, fftbuf,
+			&(dat->nphi), 1, dat->nphi, fftbuf, &(dat->nphi), 1,
+			dat->nphi, FFTW_BACKWARD, FFTW_MEASURE);
 
-	dat->bplan = fftw_plan_many_dft (1, &(dat->nphi), dat->ntheta, dat->fftbuf,
-			&(dat->nphi), 1, dat->nphi, dat->fftbuf, &(dat->nphi),
-			1, dat->nphi, FFTW_BACKWARD, FFTW_MEASURE);
+	/* The FFT buffer is no longer necessary, and will be reallocated
+	 * on-the-fly when it is needed later. */
+	fftw_free (fftbuf);
 
 	/* Find the Legendre-Gauss quadrature points. */
 	gaqd_ (&(dat->ntheta), dat->theta, dat->weights, NULL, NULL, &ierr);
@@ -53,8 +56,6 @@ int fshtinit (shdata *dat, int deg, int ntheta) {
 
 int fshtfree (shdata *dat) {
 	if (dat->theta) free (dat->theta);
-	if (dat->lgvals) free (dat->lgvals);
-	if (dat->fftbuf) fftw_free (dat->fftbuf);
 
 	fftw_destroy_plan (dat->fplan);
 	fftw_destroy_plan (dat->bplan);
@@ -100,17 +101,22 @@ int shscale (complex double *samp, shdata *dat, int sgn) {
  * and phi into SH coefficients. */
 int ffsht (complex double *samp, shdata *dat) {
 	int i, j, k, aoff, npk, dm1;
-	double cth, pc, scale;
-	complex double *beta;
+	double cth, pc, scale, *lgvals;
+	complex double *beta, *fftbuf;
 
 	/* Copy the samples to the FFT buffer and perform the FFT. */
-	memcpy (dat->fftbuf, samp, dat->ntheta * dat->nphi * sizeof(complex double));
-	fftw_execute (dat->fplan);
+	fftbuf = fftw_malloc (dat->ntheta * dat->nphi * sizeof(complex double));
+	memcpy (fftbuf, samp, dat->ntheta * dat->nphi * sizeof(complex double));
+
+	lgvals = malloc (dat->deg * sizeof(double));
+
+	/* Perform an in-place FFT of the buffer. */
+	fftw_execute_dft (dat->fplan, fftbuf, fftbuf);
 
 	/* Zero out the input samples, to prepare for storage of coefficients. */
 	memset (samp, 0, dat->ntheta * dat->nphi * sizeof(complex double));
 
-	beta = dat->fftbuf;
+	beta = fftbuf;
 
 	dm1 = dat->deg - 1;
 
@@ -120,19 +126,19 @@ int ffsht (complex double *samp, shdata *dat) {
 		cth = cos(dat->theta[i]);
 
 		/* Build the Legendre polynomials that we need. */
-		gsl_sf_legendre_sphPlm_array (dm1, 0, cth, dat->lgvals);
+		gsl_sf_legendre_sphPlm_array (dm1, 0, cth, lgvals);
 
 		/* Handle m = 0 for all degrees. */
 		for (j = 0; j < dat->deg; ++j)
-			samp[j * dat->nphi] += scale * beta[0] * dat->lgvals[j];
+			samp[j * dat->nphi] += scale * beta[0] * lgvals[j];
 
 		/* Handle nonzero orders for all relevant degrees. */
 		for (k = 1; k < dat->deg; ++k) {
 			npk = dat->nphi - k;
-			gsl_sf_legendre_sphPlm_array (dm1, k, cth, dat->lgvals);
+			gsl_sf_legendre_sphPlm_array (dm1, k, cth, lgvals);
 			for (j = k; j < dat->deg; ++j) {
 				aoff = j * dat->nphi;
-				pc = scale * dat->lgvals[j - k];
+				pc = scale * lgvals[j - k];
 				/* The positive-order coefficient. */
 				samp[aoff + k] += pc * beta[k];
 				/* The negative-order coefficient. */
@@ -143,6 +149,9 @@ int ffsht (complex double *samp, shdata *dat) {
 		beta += dat->nphi;
 	}
 
+	/* The FFT buffer is no longer required. */
+	fftw_free (fftbuf);
+
 	return dat->deg;
 }
 
@@ -150,13 +159,16 @@ int ffsht (complex double *samp, shdata *dat) {
  * function in theta and phi. */
 int ifsht (complex double *samp, shdata *dat) {
 	int i, j, k, aoff, npk, dm1;
-	double cth;
-	complex double *beta;
+	double cth, *lgvals;
+	complex double *beta, *fftbuf;
 
 	/* Zero out the FFT buffer to prepare for evaluation of function. */
-	memset (dat->fftbuf, 0, dat->ntheta * dat->nphi * sizeof(complex double));
+	fftbuf = fftw_malloc (dat->ntheta * dat->nphi * sizeof(complex double));
+	memset (fftbuf, 0, dat->ntheta * dat->nphi * sizeof(complex double));
 
-	beta = dat->fftbuf;
+	lgvals = malloc (dat->deg * sizeof(double));
+
+	beta = fftbuf;
 
 	dm1 = dat->deg - 1;
 
@@ -165,20 +177,20 @@ int ifsht (complex double *samp, shdata *dat) {
 		cth = cos(dat->theta[i]);
 
 		/* Build the Legendre polynomials that we need. */
-		gsl_sf_legendre_sphPlm_array (dm1, 0, cth, dat->lgvals);
+		gsl_sf_legendre_sphPlm_array (dm1, 0, cth, lgvals);
 
 		for (j = 0; j < dat->deg; ++j)
-			beta[0] += samp[j * dat->nphi] * dat->lgvals[j];
+			beta[0] += samp[j * dat->nphi] * lgvals[j];
 
 		for (k = 1; k < dat->deg; ++k) {
 			npk = dat->nphi - k;
-			gsl_sf_legendre_sphPlm_array (dm1, k, cth, dat->lgvals);
+			gsl_sf_legendre_sphPlm_array (dm1, k, cth, lgvals);
 			for (j = k; j < dat->deg; ++j) {
 				aoff = j * dat->nphi;
 				/* The positive-order coefficient. */
-				beta[k] += samp[aoff + k] * dat->lgvals[j - k];
+				beta[k] += samp[aoff + k] * lgvals[j - k];
 				/* The negative-order coefficient. */
-				beta[npk] += samp[aoff + npk] * dat->lgvals[j - k];
+				beta[npk] += samp[aoff + npk] * lgvals[j - k];
 			}
 		}
 
@@ -187,8 +199,12 @@ int ifsht (complex double *samp, shdata *dat) {
 	}
 
 	/* Perform the inverse FFT and copy the values to the storage area. */
-	fftw_execute (dat->bplan);
-	memcpy (samp, dat->fftbuf, dat->ntheta * dat->nphi * sizeof(complex double));
+	fftw_execute_dft (dat->bplan, fftbuf, fftbuf);
+	memcpy (samp, fftbuf, dat->ntheta * dat->nphi * sizeof(complex double));
+
+	/* Eliminate the FFT buffer. */
+	fftw_free (fftbuf);
+	free (lgvals);
 
 	return dat->deg;
 }

@@ -34,39 +34,37 @@ int buildrhs (complex double *rhs, spscat *spl, int nsph, shdata *shtr) {
 
 int scatmat (complex double *vout, complex double *vin, spscat *spl,
 		int nsph, complex **trans, shdata *shtr) {
-	int i, j, k, off, nterm;
+	int i, j, k, off, nterm, n;
 	complex double *buf, *voptr, *viptr;
 
 	nterm = shtr->ntheta * shtr->nphi;
+	n = nterm * nsph;
 
-	buf = malloc (nterm * sizeof(complex double));
+	buf = calloc (n, sizeof(complex double));
 
+#pragma omp parallel for private(i,j,k,voptr,viptr) default(shared)
 	for (i = 0; i < nsph; ++i) {
-		voptr = vout + i * nterm;
+		voptr = buf + i * nterm;
 
-		/* Copy the outbound field at the sphere. */
-		memcpy (voptr, vin + i * nterm, nterm * sizeof(complex double));
-		memset (buf, 0, nterm * sizeof(complex double));
-
-		/* Add up the translated fields. */
+		/* Translate all outgoing fields to the current sphere. */
 		for (j = 0; j < nsph; ++j) {
-			if (j == i) continue;
+			if (i == j) continue;
 			off = j * nsph + i;
 			viptr = vin + j * nterm;
 
 			for (k = 0; k < nterm; ++k) 
-				buf[k] += trans[off][k] * viptr[k];
+				voptr[k] += trans[off][k] * viptr[k];
 		}
 
 		/* Apply the reflection coefficient in SH space. */
-		ffsht (buf, shtr);
-		spreflect (buf, buf, (spl + i)->spdesc->reflect, shtr->deg, shtr->nphi);
-		ifsht (buf, shtr);
-
-		/* Subtract this from the outbound field. */
-		for (k = 0; k < nterm; ++k)
-			voptr[k] -= buf[k];
+		ffsht (voptr, shtr);
+		spreflect (voptr, voptr, (spl + i)->spdesc->reflect, shtr->deg, shtr->nphi);
+		ifsht (voptr, shtr);
 	}
+	
+	/* Subtract the incoming field from the outgoing field. */
+#pragma omp parallel for private(i) default(shared)
+	for (i = 0; i < n; ++i) vout[i] = vin[i] - buf[i];
 
 	free (buf);
 
