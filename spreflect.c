@@ -6,7 +6,7 @@
 #include "spreflect.h"
 
 int spbldrc (complex double *vals, complex double k0, complex double k1,
-		double r, int ord) {
+		double rho0, double rho1, double r, int ord) {
 	complex double *jl0, *hl0, *jl1, *hl1, *djl0, *dhl0, *djl1, *dhl1,
 		k0r, k1r;
 	double gamma;
@@ -25,8 +25,7 @@ int spbldrc (complex double *vals, complex double k0, complex double k1,
 	k0r = k0 * r;
 	k1r = k1 * r;
 
-	/* This assumes the density is constant in all materials. */
-	gamma = creal (k1) / creal (k0);
+	gamma = rho0 * creal (k1) / (rho1 * creal (k0));
 
 	/* Compute the four Bessel function values. */
 	spbesj (jl0, k0r, ord);

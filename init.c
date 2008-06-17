@@ -28,7 +28,9 @@ int sphinit (sptype *spt, int nspt, bgtype *bg, shdata *shtr) {
 	for (i = 0; i < nspt; ++i) {
 		sptr = spt + i;
 		sptr->reflect = malloc (deg * sizeof(complex double));
-		spbldrc (sptr->reflect, bg->k, sptr->k, sptr->r, deg);
+		/* The background relative density is unity, and the sphere
+		 * density is specified relative to the background. */
+		spbldrc (sptr->reflect, bg->k, sptr->k, 1.0, sptr->rho, sptr->r, deg);
 	}
 
 	return nspt;

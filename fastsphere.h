@@ -19,6 +19,7 @@ typedef struct {
 	double r; 	/* Radius in wavelengths. */
 	double c;	/* Sound speed relative to background. */
 	double alpha;	/* Attenuation (dB per wavelength). */
+	double rho;	/* Density relative to background. */
 } sptype;
 
 typedef struct {
@@ -32,6 +33,7 @@ typedef struct {
 
 	double cabs;	/* Absolute sound speed (m/s). */
 	double alpha;	/* Attenuation (dB per wavelength). */
+	double rho0;	/* Grams per cubic centimeter. */
 } bgtype;
 
 typedef struct {

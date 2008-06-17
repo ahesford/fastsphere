@@ -56,8 +56,9 @@ int readcfg (FILE *cfgin, int *nspheres, int *nsptype, sptype **spt,
 
 	if (!nextline (cfgin, buf, BUFLEN)) return 0;
 
-	/* Background sound speed and attenuation. */
-	if (sscanf (buf, "%lf %lf", &(bg->cabs), &(bg->alpha)) != 2) return 0;
+	/* Background sound speed, attenuation, density. */
+	if (sscanf (buf, "%lf %lf %lf", &(bg->cabs), &(bg->alpha),
+				&(bg->rho0)) != 3) return 0;
 
 	/* Convert attenuation from dB per cm * MHz to dB per wavelength. */
 	bg->alpha *= 1e-4 * bg->cabs;
@@ -89,9 +90,10 @@ int readcfg (FILE *cfgin, int *nspheres, int *nsptype, sptype **spt,
 	for (i = 0, stptr = *spt; i < *nsptype; ++i, ++stptr) {
 		if (!nextline (cfgin, buf, BUFLEN)) return 0;
 
-		/* The radius, sound speed and attenuation of each sphere type. */
-		if (sscanf (buf, "%lf %lf %lf", &(stptr->r), &(stptr->c),
-					&(stptr->alpha)) != 3)
+		/* The radius, sound speed, attenuation and density of each
+		 * sphere type. */
+		if (sscanf (buf, "%lf %lf %lf %lf", &(stptr->r), &(stptr->c),
+					&(stptr->alpha), &(stptr->rho)) != 4)
 			return 0;
 
 		/* Convert radius to wavelengths. */
@@ -102,6 +104,9 @@ int readcfg (FILE *cfgin, int *nspheres, int *nsptype, sptype **spt,
 
 		/* Convert attenuation to dB per wavelength. */
 		stptr->alpha *= 1e-4 * bg->cabs;
+
+		/* Convert density to relative density. */
+		stptr->rho /= bg->rho0;
 	}
 
 	for (i = 0, ssptr = *spl; i < *nspheres; ++i, ++ssptr) {
