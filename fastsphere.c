@@ -20,8 +20,11 @@ int main (int argc, char **argv) {
 	complex double **trans, *rhs, *sol;
 
 	readcfg (stdin, &nspheres, &nsptype, &sparms, &slist, &bg, &exct);
+	fprintf (stderr, "Parsed configuration for %d spheres at %g MHz\n", nspheres, exct.f / 1e6);
 	sphinit (sparms, nsptype, &bg, &shtr);
+	fprintf (stderr, "Initialized spherical harmonic data for degree %d\n", shtr.deg);
 	sphbldfmm (&trans, slist, nspheres, &bg, &shtr);
+	fprintf (stderr, "Built FMM translators for all spheres\n");
 
 	itc.iter = 100; itc.restart = 10; itc.eps = 1e-6;
 
@@ -57,8 +60,10 @@ int main (int argc, char **argv) {
 	/* Convert the incoming incident field to the reflected incident
 	 * field, which is the RHS for this problem. */
 	buildrhs (rhs, slist, nspheres, &shtr);
+	fprintf (stderr, "Built RHS vector\n");
 
 	itsolve (sol, rhs, slist, nspheres, trans, &shtr, &itc);
+	fprintf (stderr, "Iteration complete, writing solution\n");
 
 	fflush (stdout);
 
