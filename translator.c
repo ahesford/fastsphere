@@ -21,7 +21,7 @@ complex double transang (int ord, complex double *hfn, double *lgwork,
 	s[1] = st * sin(phi);
 	s[2] = cos(theta);
 
-	sds = s[0] * sdir[0] + s[1] * sdir[1] + s[2] * sdir[2];
+	sds = DVDOT(s,sdir);
 
 	/* Compute the Legendre polynomials. */
 	legpoly (ord, sds, lgwork);

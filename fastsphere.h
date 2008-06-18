@@ -3,8 +3,6 @@
 
 #include <complex.h>
 
-#include "fsht.h"
-
 typedef struct {
 	/* The complex wave number is k = kr + i * ki. The parts are defined:
 	 * 	kr = 2 * pi / cr, where cr is the relative sound speed

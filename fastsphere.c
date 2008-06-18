@@ -7,6 +7,7 @@
 #include "fastsphere.h"
 #include "config.h"
 #include "init.h"
+#include "util.h"
 #include "scatmat.h"
 
 int main (int argc, char **argv) {
@@ -46,7 +47,7 @@ int main (int argc, char **argv) {
 		sdir[1] = slist[i].cen[1] - exct.cen[1];
 		sdir[2] = slist[i].cen[2] - exct.cen[2];
 
-		rsrc = sqrt (sdir[0] * sdir[0] + sdir[1] * sdir[1] + sdir[2] * sdir[2]);
+		rsrc = sqrt (DVDOT(sdir,sdir));
 		sdir[0] /= rsrc; sdir[1] /= rsrc; sdir[2] /= rsrc;
 		kr = bg.k * rsrc;
 

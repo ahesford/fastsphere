@@ -17,12 +17,12 @@ int fshtinit (shdata *dat, int deg, int ntheta) {
 	int ierr;
 	complex double *fftbuf;
 
-	/* The number of theta samples isn't always the same as the number of
-	 * spherical harmonic degrees used. */
-	dat->ntheta = ntheta;
-
 	/* This is actually one more than the maximum degree. */
 	dat->deg = deg;
+
+	/* The number of theta samples must at least equal the SH degree. */
+	if (ntheta < deg) dat->ntheta = deg;
+	else dat->ntheta = ntheta;
 
 	/* This many phi values are required for fast evaluation with FFT. */
 	dat->nphi = 2 * deg - 1;

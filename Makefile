@@ -13,7 +13,7 @@ LIBS= -lgmres -lamos -lspherepack -lgsl -lfftw3 -framework Accelerate
 
 SHOBJS= fsht.o shtest.o util.o
 TROBJS= fsht.o translator.o trtest.o spbessel.o util.o
-OBJS= config.o fastsphere.o fsht.o init.o scatmat.o \
+OBJS= config.o fastsphere.o fsht.o init.o scatmat.o farfield.o \
       spbessel.o spreflect.o translator.o util.o
 
 SHTEST= shtest

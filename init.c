@@ -100,7 +100,7 @@ int sphbldfmm (complex double ***trans, spscat *sph, int nsph,
 		sdir[2] = sph[i].cen[2] - sph[j].cen[2];
 
 		/* Translation distance. */
-		dist = sqrt(sdir[0] * sdir[0] + sdir[1] * sdir[1] + sdir[2] * sdir[2]);
+		dist = sqrt(DVDOT(sdir,sdir));
 		kr = bg->k * dist;
 
 		/* Normalize translation direction. */
