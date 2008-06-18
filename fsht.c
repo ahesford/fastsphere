@@ -13,7 +13,7 @@
 
 void gaqd_ (int *, double *, double *, double *, int *, int *);
 
-int fshtinit (shdata *dat, int deg, int ntheta) {
+int fshtinit (shdata *dat, int deg, int ntheta, int nphi) {
 	int ierr;
 	complex double *fftbuf;
 
@@ -24,8 +24,9 @@ int fshtinit (shdata *dat, int deg, int ntheta) {
 	if (ntheta < deg) dat->ntheta = deg;
 	else dat->ntheta = ntheta;
 
-	/* This many phi values are required for fast evaluation with FFT. */
-	dat->nphi = 2 * deg - 1;
+	/* At least this many phi values are required for fast FFT evaluation. */
+	if (2 * deg - 1 > nphi) dat->nphi = 2 * deg - 1;
+	else dat->nphi = nphi;
 
 	/* Allocate the theta points and weights. */
 	dat->theta = malloc (2 * dat->ntheta * sizeof(double));

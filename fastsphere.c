@@ -9,6 +9,7 @@
 #include "init.h"
 #include "util.h"
 #include "scatmat.h"
+#include "farfield.h"
 
 int main (int argc, char **argv) {
 	int nspheres, nsptype, n, i, nterm, trunc;
@@ -16,9 +17,9 @@ int main (int argc, char **argv) {
 	spscat *slist;
 	bgtype bg;
 	exctparm exct;
-	shdata shtr;
+	shdata shtr, shroot;
 	itconf itc;
-	complex double **trans, *rhs, *sol;
+	complex double **trans, *rhs, *sol, *radpat;
 
 	readcfg (stdin, &nspheres, &nsptype, &sparms, &slist, &bg, &exct, &itc);
 	fprintf (stderr, "Parsed configuration for %d spheres at %g MHz\n", nspheres, exct.f / 1e6);
@@ -26,6 +27,11 @@ int main (int argc, char **argv) {
 	fprintf (stderr, "Initialized spherical harmonic data for degree %d\n", shtr.deg);
 	sphbldfmm (&trans, slist, nspheres, &bg, &shtr);
 	fprintf (stderr, "Built FMM translators for all spheres\n");
+
+	n = rootorder (slist, nspheres, &bg);
+	n = 2 * n - 1; /* The number of angular samples (in each direction). */
+	fshtinit (&shroot, shtr.deg, n, n);
+	fprintf (stderr, "Built spherical harmonic data for far-field\n");
 
 	nterm = shtr.ntheta * shtr.nphi;
 	n = nspheres * nterm;
@@ -66,8 +72,13 @@ int main (int argc, char **argv) {
 
 	fflush (stdout);
 
+	/* Compute the far-field radiation pattern of the object. */
+	n = shroot.ntheta * shroot.nphi;
+	radpat = malloc (n * sizeof(complex double));
+	farfield (radpat, sol, slist, nspheres, &bg, &shroot, &shtr);
+
 	for (i = 0; i < n; ++i)
-		printf ("%20.15f %20.15f\n", creal (sol[i]), cimag (sol[i]));
+		printf ("%20.15f %20.15f\n", creal (radpat[i]), cimag (radpat[i]));
 
 	fflush (stdout);
 
@@ -75,6 +86,9 @@ int main (int argc, char **argv) {
 	free (*trans);
 	free (trans);
 	free (rhs);
+	free (radpat);
+	fshtfree (&shroot);
+	fshtfree (&shtr);
 
 	return EXIT_SUCCESS;
 }

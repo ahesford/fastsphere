@@ -71,9 +71,9 @@ int farfield (complex double *vout, complex double *vin, spscat *slist,
 		ifsht (buf, shout);	/* Interpolated angular samples. */
 
 		/* Add the phase-shifted sphere pattern to the total pattern. */
-		for (i = 0, l = 0; i < shout->ntheta; ++i) {
-			s[2] = cos((shout->theta)[i]);
-			sth = sin((shout->theta)[i]);
+		for (j = 0, l = 0; j < shout->ntheta; ++j) {
+			s[2] = cos((shout->theta)[j]);
+			sth = sin((shout->theta)[j]);
 			for (k = 0; k < shout->nphi; ++k, ++l) {
 				phi = k * dphi;
 				s[0] = sth * cos(phi);

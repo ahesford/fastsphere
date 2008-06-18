@@ -61,7 +61,7 @@ int main (int argc, char **argv) {
 
 	fprintf (stderr, "Translation of %d harmonics.\n", l);
 
-	fshtinit (&dat, l, 2 * l - 1);
+	fshtinit (&dat, l, 2 * l - 1, 2 * l - 1);
 
 	j = dat.ntheta * dat.nphi;
 

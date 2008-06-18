@@ -8,7 +8,7 @@
 #include "init.h"
 
 int sphinit (sptype *spt, int nspt, bgtype *bg, shdata *shtr) {
-	int i, deg, ntheta;
+	int i, deg, nang;
 	double maxrad = 0.0;
 	sptype *sptr;
 
@@ -16,12 +16,11 @@ int sphinit (sptype *spt, int nspt, bgtype *bg, shdata *shtr) {
 	for (i = 0, sptr = spt; i < nspt; ++i, ++sptr)
 		maxrad = MAX (maxrad, sptr->r);
 
-	/* Use six digits of accuracy. */
-	deg = exband (bg->k * maxrad, 6);
-	ntheta = 2 * deg - 1;
+	deg = exband (bg->k * maxrad, 6); /* Use six digits of accuracy. */
+	nang = 2 * deg - 1; /* The number of angular samples (per dimension). */
 
 	/* Initialize the SH transform data. */
-	fshtinit (shtr, deg, ntheta);
+	fshtinit (shtr, deg, nang, nang);
 
 	/* Initialize and populate the SH reflection coefficients. */
 #pragma omp parallel for private(i,sptr) default(shared)
