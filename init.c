@@ -8,15 +8,15 @@
 #include "init.h"
 
 int sphinit (sptype *spt, int nspt, bgtype *bg, shdata *shtr) {
-	int i, deg, nang;
-	double maxrad = 0.0;
+	int i, deg = 0, nang;
 	sptype *sptr;
 
-	/* Find the maximum sphere radius. */
-	for (i = 0, sptr = spt; i < nspt; ++i, ++sptr)
-		maxrad = MAX (maxrad, sptr->r);
+	/* Find the maximum spherical harmonic degree required. */
+	for (i = 0, sptr = spt; i < nspt; ++i, ++sptr) {
+		sptr->deg = exband (bg->k * sptr->r, 6);
+		deg = MAX(deg, sptr->deg);
+	}
 
-	deg = exband (bg->k * maxrad, 6); /* Use six digits of accuracy. */
 	nang = 2 * deg - 1; /* The number of angular samples (per dimension). */
 
 	/* Initialize the SH transform data. */
@@ -26,10 +26,13 @@ int sphinit (sptype *spt, int nspt, bgtype *bg, shdata *shtr) {
 #pragma omp parallel for private(i,sptr) default(shared)
 	for (i = 0; i < nspt; ++i) {
 		sptr = spt + i;
-		sptr->reflect = malloc (deg * sizeof(complex double));
+		/* The reflection coefficients go out to the maximum degree,
+		 * but are all zero beyond the sphere's maximum degree. */
+		sptr->reflect = calloc (deg, sizeof(complex double));
 		/* The background relative density is unity, and the sphere
 		 * density is specified relative to the background. */
-		spbldrc (sptr->reflect, bg->k, sptr->k, 1.0, sptr->rho, sptr->r, deg);
+		spbldrc (sptr->reflect, bg->k, sptr->k,
+				1.0, sptr->rho, sptr->r, sptr->deg);
 	}
 
 	return nspt;

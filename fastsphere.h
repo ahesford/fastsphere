@@ -18,6 +18,7 @@ typedef struct {
 	double c;	/* Sound speed relative to background. */
 	double alpha;	/* Attenuation (dB per wavelength). */
 	double rho;	/* Density relative to background. */
+	int deg;	/* Maximum spherical harmonic degree. */
 } sptype;
 
 typedef struct {
