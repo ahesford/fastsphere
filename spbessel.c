@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include <stdlib.h>
 
 #include <complex.h>
@@ -7,67 +8,65 @@
 
 complex double dspbesj0 (complex double);
 complex double dspbesh0 (complex double);
+void spbesjinit (complex double *, complex double, int);
+void spbeshinit (complex double *, complex double, int);
 
 int spbesh (complex double *vals, complex double z, int n) {
-	double zr, zi, *cr, *ci, fnu = 0.5;
-	int one = 1, nz, ierr;
-	complex double fact;
+	int i, nmo;
 
-	cr = malloc (2 * n * sizeof(double));
-	ci = cr + n;
+	if (n < 0) return -1;
 
-	zr = creal(z);
-	zi = cimag(z);
+	/* Build the first orders of the Hankel function. */
+	spbeshinit (vals, z, n);
 
-	/* Call the complex Hankel function routine. */
-	zbesh_ (&zr, &zi, &fnu, &one, &one, &n, cr, ci, &nz, &ierr);
-
-	if (ierr) {
-		free (cr);
-		return ierr;
-	}
-
-	/* The spherical scaling factor. */
-	fact = csqrt (M_PI_2 / z);
-
-	/* Scale and collapse the real and imaginary parts. */
-	for (nz = 0; nz < n; ++nz) 
-		vals[nz] = fact * (cr[nz] + I * ci[nz]);
-
-	free (cr);
+	/* Recursion fills out the rest of the orders. */
+	nmo = n - 1;
+	for (i = 1; i < nmo; ++i)
+		vals[i+1] = (2 * i + 1) * vals[i] / z - vals[i - 1];
 
 	return 0;
 }
 
 int spbesj (complex double *vals, complex double z, int n) {
-	double zr, zi, *cr, *ci, fnu = 0.5;
-	int one = 1, nz, ierr;
-	complex double fact;
+	int i, nmo;
 
-	cr = malloc (2 * n * sizeof(double));
-	ci = cr + n;
+	if (n < 0) return -1;
 
-	zr = creal(z);
-	zi = cimag(z);
+	/* Build the first orders of the Hankel function. */
+	spbesjinit (vals, z, n);
 
-	/* Call the complex Bessel function routine. */
-	zbesj_ (&zr, &zi, &fnu, &one, &n, cr, ci, &nz, &ierr);
-
-	if (ierr) {
-		free (cr);
-		return ierr;
-	}
-
-	/* The spherical scaling factor. */
-	fact = csqrt (M_PI_2 / z);
-
-	/* Scale and collapse the real and imaginary parts. */
-	for (nz = 0; nz < n; ++nz) 
-		vals[nz] = fact * (cr[nz] + I * ci[nz]);
-
-	free (cr);
+	/* Recursion fills out the rest of the orders. */
+	nmo = n - 1;
+	for (i = 1; i < nmo; ++i)
+		vals[i+1] = (2 * i + 1) * vals[i] / z - vals[i - 1];
 
 	return 0;
+}
+
+/* Compute the zero-order and unity-order spherical Bessel function and store
+ * in jf[0] and jf[1], respectively. */
+void spbesjinit (complex double *jf, complex double x, int nmax) {
+	jf[0] = csin(x) / x;
+
+	/* Don't compute the unity-order if nmax says not to. */
+	if (nmax < 1) return;
+
+	jf[1] = (jf[0] - ccos(x)) / x;
+}
+
+/* Compute the zero-order and unity-order spherical Hankel function and store
+ * in hf[0] and hf[1], respectively. */
+void spbeshinit (complex double *hf, complex double x, int nmax) {
+	complex double cxfact;
+
+	cxfact = -cexp (I * x) / x;
+
+	hf[0] = I * cxfact;
+
+	/* Don't compute the unity-order if nmax says not to. */
+	if (nmax < 1) return;
+
+	hf[1] = cxfact * (1 + I / x);
 }
 
 /* Returns the derivative of the zero-order spherical Hankel function. */
