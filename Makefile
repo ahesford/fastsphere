@@ -3,11 +3,11 @@ CC= gcc-mp-4.2
 AR= ar
 RM= rm -f
 
-OPTFLAGS= -fopenmp -g -march=prescott -mtune=prescott
+OPTFLAGS= -fopenmp -O -march=prescott -mtune=prescott
 FFLAGS= $(OPTFLAGS)
-CFLAGS= $(OPTFLAGS) -I/opt/local/include -I/usr/local/include
+CFLAGS= $(OPTFLAGS) -I/opt/local/include
 
-LFLAGS= $(OPTFLAGS) -L/opt/local/lib -L/usr/local/lib -L../spherepack31 -L../gmres
+LFLAGS= $(OPTFLAGS) -L/opt/local/lib -L../spherepack31 -L../gmres
 LIBS= -lgmres -lspherepack -lgsl -lfftw3 -framework Accelerate
 
 SHOBJS= fsht.o shtest.o util.o

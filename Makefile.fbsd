@@ -5,12 +5,11 @@ RM?= rm -f
 
 OPTFLAGS= -fopenmp -O2 -march=opteron -mtune=opteron
 FFLAGS= $(OPTFLAGS)
-CFLAGS= $(OPTFLAGS) -I/opt/local/include -I/usr/local/include
+CFLAGS= $(OPTFLAGS) -I/usr/local/include
 
-LFLAGS= $(OPTFLAGS) -L/opt/local/lib -L/usr/local/lib -L../spherepack31 \
-	-L../libamos -L../gmres
-LIBS= -lgmres -lamos -lspherepack -lgsl -lfftw3 \
-      -lalapack_r -lptf77blas -lptcblas -latlas_r
+LFLAGS= $(OPTFLAGS) -L/usr/local/lib -L../spherepack31 -L../gmres
+LIBS= -lgmres -lspherepack -lgsl -lfftw3 -lalapack_r -lptf77blas \
+      -lptcblas -latlas_r
 
 SHOBJS= fsht.o shtest.o util.o
 TROBJS= fsht.o translator.o trtest.o spbessel.o util.o
