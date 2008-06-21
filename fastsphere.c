@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
 
 #include <complex.h>
 #include <math.h>
@@ -11,6 +12,45 @@
 #include "scatmat.h"
 #include "farfield.h"
 
+void usage () {
+	fprintf (stderr, "USAGE: fastsphere [-h] [-i input] [-o output] [-r rhsfile]\n");
+	fprintf (stderr, "\t-h\tPrint this message and exit\n");
+	fprintf (stderr, "\t-i\tSpecify configuration file path (default: stdin)\n");
+	fprintf (stderr, "\t-o\tSpecify output radiation file path (default: stdout)\n");
+	fprintf (stderr, "\t-r\tSpecify output RHS file path (default: none)\n");
+
+	exit (EXIT_FAILURE);
+}
+
+FILE *critopen (char *fname, char *mode) {
+	FILE *fptr;
+
+	fptr = fopen (fname, mode);
+
+	if (!fptr) {
+		fprintf (stderr, "ERROR: Could not open input file %s.\n", fname);
+		exit (EXIT_FAILURE);
+
+		return NULL;
+	}
+
+	return fptr;
+}
+
+int writebvec (FILE *out, complex double *vec, int n, int m) {
+	int size[2], len;
+
+	size[0] = n; size[1] = m;
+	len = n * m;
+
+	/* Write the size of the vector. */
+	fwrite (size, sizeof(int), 2, out);
+	/* Write the vector itself. */
+	fwrite (vec, sizeof(complex double), len, out);
+
+	return len;
+}
+
 int main (int argc, char **argv) {
 	int nspheres, nsptype, n, i, nterm, trunc;
 	sptype *sparms;
@@ -21,7 +61,29 @@ int main (int argc, char **argv) {
 	itconf itc;
 	complex double **trans, *rhs, *sol, *radpat;
 
-	readcfg (stdin, &nspheres, &nsptype, &sparms, &slist, &bg, &exct, &itc);
+	FILE *fptr = NULL;
+	char *inname = NULL, *outname = NULL, *rhsname = NULL, ch;
+
+	while ((ch = getopt (argc, argv, "hi:o:r:")) != -1) {
+		switch (ch) {
+		case 'i':
+			inname = optarg;
+			break;
+		case 'o':
+			outname = optarg;
+			break;
+		case 'r':
+			rhsname = optarg;
+			break;
+		case 'h': default:
+			usage ();
+		}
+	}
+
+	if (!inname) fptr = stdin;
+	else fptr = critopen (inname, "r");
+
+	readcfg (fptr, &nspheres, &nsptype, &sparms, &slist, &bg, &exct, &itc);
 	fprintf (stderr, "Parsed configuration for %d spheres at %g MHz\n", nspheres, exct.f / 1e6);
 	sphinit (sparms, nsptype, &bg, &shtr);
 	fprintf (stderr, "Initialized spherical harmonic data for degree %d\n", shtr.deg);
@@ -67,8 +129,14 @@ int main (int argc, char **argv) {
 	buildrhs (rhs, slist, nspheres, &shtr);
 	fprintf (stderr, "Built RHS vector\n");
 
+	if (rhsname) {
+		fptr = critopen (rhsname, "w");
+		writebvec (fptr, rhs, nterm, nspheres);
+		fclose (fptr);
+	}
+
 	itsolve (sol, rhs, slist, nspheres, trans, &shtr, &itc);
-	fprintf (stderr, "Iteration complete, writing solution\n");
+	fprintf (stderr, "Iteration complete, computing radiation pattern\n");
 
 	fflush (stdout);
 
@@ -77,10 +145,12 @@ int main (int argc, char **argv) {
 	radpat = malloc (n * sizeof(complex double));
 	farfield (radpat, sol, slist, nspheres, &bg, &shroot, &shtr);
 
-	for (i = 0; i < n; ++i)
-		printf ("%20.15f %20.15f\n", creal (radpat[i]), cimag (radpat[i]));
+	if (!outname) fptr = stdout;
+	else fptr = critopen (outname, "w");
 
-	fflush (stdout);
+	fprintf (stderr, "Writing solution for %d theta and %d phi samples\n", shroot.ntheta, shroot.nphi);
+	writebvec (fptr, radpat, shroot.nphi, shroot.ntheta);
+	fclose (fptr);
 
 	clrspheres (sparms, nsptype);
 	free (*trans);
