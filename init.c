@@ -20,7 +20,7 @@ int sphinit (sptype *spt, int nspt, bgtype *bg, shdata *shtr) {
 	nang = 2 * deg - 1; /* The number of angular samples (per dimension). */
 
 	/* Initialize the SH transform data. */
-	fshtinit (shtr, deg, nang, nang);
+	fshtinit (shtr, deg, nang, 2 * nang);
 
 	/* Initialize and populate the SH reflection coefficients. */
 #pragma omp parallel for private(i,sptr) default(shared)

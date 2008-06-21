@@ -30,7 +30,7 @@ int main (int argc, char **argv) {
 
 	n = rootorder (slist, nspheres, &bg);
 	n = 2 * n - 1; /* The number of angular samples (in each direction). */
-	fshtinit (&shroot, shtr.deg, n, n);
+	fshtinit (&shroot, shtr.deg, n, 2 * n);
 	fprintf (stderr, "Built spherical harmonic data for far-field\n");
 
 	nterm = shtr.ntheta * shtr.nphi;

@@ -41,7 +41,7 @@ void expnsh (complex double *out, complex double *in, shdata *shout, shdata *shi
 		out[offo] = in[offi];
 
 		/* Copy the other coefficients. */
-		for (j = 1; j < i; ++j) {
+		for (j = 1; j <= i; ++j) {
 			out[offo + j] = in[offi + j];
 			out[offo + shout->nphi - j] = in[offi + shin->nphi - j];
 		}
