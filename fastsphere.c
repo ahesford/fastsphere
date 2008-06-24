@@ -59,7 +59,8 @@ int main (int argc, char **argv) {
 	exctparm exct;
 	shdata shtr, shroot;
 	itconf itc;
-	complex double **trans, *rhs, *sol, *radpat;
+	trdesc *trans;
+	complex double *rhs, *sol, *radpat;
 
 	FILE *fptr = NULL;
 	char *inname = NULL, *outname = NULL, *rhsname = NULL, ch;
@@ -87,7 +88,7 @@ int main (int argc, char **argv) {
 	fprintf (stderr, "Parsed configuration for %d spheres at %g MHz\n", nspheres, exct.f / 1e6);
 	sphinit (sparms, nsptype, &bg, &shtr);
 	fprintf (stderr, "Initialized spherical harmonic data for degree %d\n", shtr.deg);
-	sphbldfmm (&trans, slist, nspheres, &bg, &shtr);
+	trans = sphbldfmm (slist, nspheres, &bg, &shtr);
 	fprintf (stderr, "Built FMM translators for all spheres\n");
 
 	n = rootorder (slist, nspheres, &bg);
@@ -107,20 +108,26 @@ int main (int argc, char **argv) {
 #pragma omp parallel private(i) default(shared)
 {
 	/* These variables are private. */
-	double sdir[3], rsrc;
-	complex double kr;
+	double rsrc;
+	trdesc trinc;
+
+	trinc.trunc = trunc;
+	trinc.type = TRPLANE;
 
 	for (i = 0; i < nspheres; ++i) {
-		sdir[0] = slist[i].cen[0] - exct.cen[0];
-		sdir[1] = slist[i].cen[1] - exct.cen[1];
-		sdir[2] = slist[i].cen[2] - exct.cen[2];
+		trinc.sdir[0] = slist[i].cen[0] - exct.cen[0];
+		trinc.sdir[1] = slist[i].cen[1] - exct.cen[1];
+		trinc.sdir[2] = slist[i].cen[2] - exct.cen[2];
 
-		rsrc = sqrt (DVDOT(sdir,sdir));
-		sdir[0] /= rsrc; sdir[1] /= rsrc; sdir[2] /= rsrc;
-		kr = bg.k * rsrc;
+		rsrc = sqrt (DVDOT(trinc.sdir,trinc.sdir));
+		trinc.sdir[0] /= rsrc;
+		trinc.sdir[1] /= rsrc;
+		trinc.sdir[2] /= rsrc;
 
-		translator (rhs + i * nterm, trunc, shtr.ntheta,
-				shtr.nphi, shtr.theta, kr, sdir);
+		trinc.kr = bg.k * rsrc;
+		trinc.trdata = rhs + i * nterm;
+
+		translator (&trinc, shtr.ntheta, shtr.nphi, shtr.theta);
 	}
 }
 
@@ -153,7 +160,7 @@ int main (int argc, char **argv) {
 	fclose (fptr);
 
 	clrspheres (sparms, nsptype);
-	free (*trans);
+	free (trans->trdata);
 	free (trans);
 	free (rhs);
 	free (radpat);

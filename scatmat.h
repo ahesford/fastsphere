@@ -4,6 +4,7 @@
 #include <complex.h>
 
 #include "fastsphere.h"
+#include "translator.h"
 #include "fsht.h"
 
 typedef struct {
@@ -14,8 +15,8 @@ typedef struct {
 enum GMRES_INFO { GEX = 0, GMV, GLP, GRP, GDP };
 
 int buildrhs (complex double *, spscat *, int, shdata *);
-int scatmat (complex double *, complex double *, spscat *, int, complex **, shdata *);
+int scatmat (complex double *, complex double *, spscat *, int, trdesc *, shdata *);
 int itsolve (complex double *, complex double *,
-		spscat *, int, complex **, shdata *, itconf *);
+		spscat *, int, trdesc *, shdata *, itconf *);
 
 #endif /* __SCATMAT_H_ */

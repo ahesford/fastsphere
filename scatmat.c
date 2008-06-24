@@ -4,6 +4,7 @@
 
 #include "fastsphere.h"
 #include "spreflect.h"
+#include "translator.h"
 #include "scatmat.h"
 #include "fsht.h"
 
@@ -33,7 +34,7 @@ int buildrhs (complex double *rhs, spscat *spl, int nsph, shdata *shtr) {
 }
 
 int scatmat (complex double *vout, complex double *vin, spscat *spl,
-		int nsph, complex **trans, shdata *shtr) {
+		int nsph, trdesc *trans, shdata *shtr) {
 	int i, j, k, off, nterm, n;
 	complex double *buf, *voptr, *viptr;
 
@@ -53,7 +54,7 @@ int scatmat (complex double *vout, complex double *vin, spscat *spl,
 			viptr = vin + j * nterm;
 
 			for (k = 0; k < nterm; ++k) 
-				voptr[k] += trans[off][k] * viptr[k];
+				voptr[k] += trans[off].trdata[k] * viptr[k];
 		}
 
 		/* Apply the reflection coefficient in SH space. */
@@ -72,8 +73,8 @@ int scatmat (complex double *vout, complex double *vin, spscat *spl,
 }
 
 int itsolve (complex double *sol, complex double *rhs, spscat *spl, int nsph,
-		complex **trans, shdata *shtr, itconf *itc) {
-	int icntl[7], irc[5], lwork, info[3], i, n, nterm, one = 1;
+		trdesc *trans, shdata *shtr, itconf *itc) {
+	int icntl[7], irc[5], lwork, info[3], n, nterm, one = 1;
 	double rinfo[2], cntl[5];
 	complex double *zwork, *tx, *ty, *tz, zone = 1.0, zzero = 0.0;
 
@@ -131,4 +132,6 @@ int itsolve (complex double *sol, complex double *rhs, spscat *spl, int nsph,
 	printf ("ZGMRES: %d iterations, %0.6g PBE, %0.6g BE.\n", info[1], rinfo[0], rinfo[1]);
 
 	free (zwork);
+
+	return info[1];
 }

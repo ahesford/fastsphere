@@ -4,6 +4,7 @@
 
 #include "fastsphere.h"
 #include "translator.h"
+#include "spreflect.h"
 #include "util.h"
 #include "init.h"
 
@@ -45,25 +46,25 @@ void clrspheres (sptype *spt, int nspt) {
 	for (i = 0; i < nspt; ++i) free (spt[i].reflect);
 }
 
-int sphbldfmm (complex double ***trans, spscat *sph, int nsph,
-		bgtype *bg, shdata *shtr) {
+trdesc* sphbldfmm (spscat *sph, int nsph, bgtype *bg, shdata *shtr) {
 	int i, j, k, nsq, nterm, trunc;
 	complex double *tptr;
+	trdesc *trans;
 	long ntrans;
 
 	nsq = nsph * nsph;
 	nterm = shtr->ntheta * shtr->nphi;
 	trunc = 2 * shtr->deg - 1;
 
-	*trans = malloc (nsq * sizeof(complex double *));
+	trans = calloc (nsq, sizeof(trdesc));
 
-	/* Allocate space for all translators. */
+	/* Allocate space for all diagonal translators. */
 	ntrans = (long) (nsq - nsph) * (long) nterm;
 
-	/* The **trans pointer is never used, but keep it pointing to the
-	 * backing store for convenience of freeing later on. */
-	**trans = malloc (ntrans * sizeof(complex double));
-	tptr = **trans;
+	/* The self translator for the first sphere is never used, but it
+	 * points to the backing store for all other diagonal translators. */
+	trans->trdata = malloc (ntrans * sizeof(complex double));
+	tptr = trans->trdata;
 
 	/* Set up the translator pointers into the backing store.
 	 * This is a separate loop because the construction loop
@@ -73,19 +74,20 @@ int sphbldfmm (complex double ***trans, spscat *sph, int nsph,
 		i = k % nsph;	/* Destination sphere. */
 
 		if (i == j) {
-			(*trans)[k] = NULL;
+			trans[k].trdata = NULL;
+			trans[k].type = TRNONE;
 			continue;
 		}
 
-		(*trans)[k] = tptr;
+		trans[k].trdata = tptr;
+		trans[k].type = TRPLANE;
 		tptr += nterm;
 	}
 
 #pragma omp parallel private(i,j,k) default(shared)
 {
 	/* These variables are private. */
-	complex double kr;
-	double sdir[3], dist;
+	double dist, *sdir;
 
 	/* Start with the first valid translator. */
 #pragma omp for
@@ -93,8 +95,10 @@ int sphbldfmm (complex double ***trans, spscat *sph, int nsph,
 		j = k / nsph;	/* Source sphere. */
 		i = k % nsph;	/* Destination sphere. */
 
-		/* This translation is never used. */
 		if (i == j) continue;
+
+		/* Convenient pointer to the translation axis. */
+		sdir = trans[k].sdir;
 
 		/* Translation direction. */
 		sdir[0] = sph[i].cen[0] - sph[j].cen[0];
@@ -103,16 +107,17 @@ int sphbldfmm (complex double ***trans, spscat *sph, int nsph,
 
 		/* Translation distance. */
 		dist = sqrt(DVDOT(sdir,sdir));
-		kr = bg->k * dist;
+		trans[k].kr = bg->k * dist;
 
 		/* Normalize translation direction. */
 		sdir[0] /= dist; sdir[1] /= dist; sdir[2] /= dist;
 
+		trans[k].trunc = trunc;
+
 		/* Build the translator. */
-		translator ((*trans)[k], trunc, shtr->ntheta, shtr->nphi,
-				shtr->theta, kr, sdir);
+		translator (trans + k, shtr->ntheta, shtr->nphi, shtr->theta);
 	}
 }
 
-	return ntrans;
+	return trans;
 }

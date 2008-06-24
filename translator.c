@@ -36,37 +36,39 @@ complex double transang (int ord, complex double *hfn, double *lgwork,
  * reference direction sdir. The values are stored in trans. In the theta
  * plane, ntheta samples are chosen according to Legendre-Gauss quadrature,
  * plus one value at each pole. There are nphi equally-spaced phi samples. */
-int translator (complex double *trans, int ord, int ntheta, int nphi,
-		double *theta, complex double kr, double *sdir) {
+int translator (trdesc *trans, int ntheta, int nphi, double *theta) {
 	double phi, dphi, *lgwork;
 	complex double *hfn, *tptr, cscale[4] = { 1.0, I, -1.0, -I };
 	int i, j, iscale;
 
-	if (ord < 0) return -1;
+	if (trans->trunc < 0) return -1;
 
 	/* Allocate storage space for the Legendre and Hankel functions. */
-	hfn = malloc (ord * sizeof(complex double));
-	lgwork = malloc (ord * sizeof(double));
+	hfn = malloc (trans->trunc * sizeof(complex double));
+	lgwork = malloc (trans->trunc * sizeof(double));
 
-	spbesh (hfn, kr, ord);
+	spbesh (hfn, trans->kr, trans->trunc);
 
 	/* The value (1i)^i wraps every fourth value of index i, so use the
 	 * cscale array to exploit that. */
 	/* iscale is 2 * i + 1, so fold that into the loop. */
-	for (i = 0, iscale = 1; i < ord; ++i, iscale += 2)
+	for (i = 0, iscale = 1; i < trans->trunc; ++i, iscale += 2)
 		hfn[i] *= cscale[i % 4] * iscale;
 
 	/* Set the phi increment and the theta samples. */
 	dphi = 2 * M_PI / MAX(nphi, 1);
 
 	/* Build the non-pole translator values. */
-	for (i = 0, tptr = trans; i < ntheta; ++i) {
+	for (i = 0, tptr = trans->trdata; i < ntheta; ++i) {
 		for (j = 0; j < nphi; ++j, ++tptr) {
 			phi = j * dphi;
-			*tptr = transang (ord, hfn, lgwork, sdir, theta[i], phi);
+			*tptr = transang (trans->trunc, hfn, lgwork,
+					trans->sdir, theta[i], phi);
 		}
 	}
 
 	free (lgwork);
 	free (hfn);
+
+	return ntheta * nphi;
 }

@@ -1,14 +1,15 @@
-#ifndef __CONFIG_H_
-#define __CONFIG_H_
+#ifndef __INIT_H_
+#define __INIT_H_
 
 #include <stdio.h>
 
 #include "fsht.h"
 #include "fastsphere.h"
+#include "translator.h"
 
 int sphinit (sptype *, int, bgtype *, shdata *);
 void clrspheres (sptype *, int);
 
-int sphbldfmm (complex double ***, spscat *, int, bgtype *, shdata *);
+trdesc* sphbldfmm (spscat *, int, bgtype *, shdata *);
 
-#endif /* __CONFIG_H_ */
+#endif /* __INIT_H_ */
