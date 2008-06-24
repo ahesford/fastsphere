@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -9,8 +10,8 @@
 #include "translator.h"
 #include "util.h"
 
-#define BPNM(n,m) sqrt(((n)-(m)-1)*((n)-(m))/((2*(n)-1)*(2*(n)+1)))
-#define ANM(n,m) sqrt(((n)+1+(m))*((n)+1-(m))/((2*(n)+1)*(2*(n)+3)))
+#define BPNM(n,m) sqrt((double)((n)-(m)-1)*((n)-(m))/(double)((2*(n)-1)*(2*(n)+1)))
+#define ANM(n,m) sqrt((double)((n)+1+(m))*((n)+1-(m))/(double)((2*(n)+1)*(2*(n)+3)))
 #define BNM(n,m) SGN(m)*BPNM(n,m)
 
 #define IDX(n,m,lda) ((m) < 0 ? ((n)+1) * (lda) - (m) : (n) * (lda) + (m))
@@ -87,7 +88,7 @@ int nexthvn (double theta, double *hvn, int m, int nmax, int mmax) {
 	opct = 1.0 + cos(theta);
 
 	/* Perform the recursion. */
-	for (i = 1; i < nmax; ++i) {
+	for (i = 2; i < nmax; ++i) {
 		bnm = BNM(i,m);
 
 		/* The zero-order coefficient. */
@@ -96,7 +97,7 @@ int nexthvn (double theta, double *hvn, int m, int nmax, int mmax) {
 				- ANM(i-1,0) * st * hvn[IDX(i,0,lda)]) / bnm;
 
 		/* The non-zero orders. */
-		for (j = 1; j < i; ++i) {
+		for (j = 1; j < i; ++j) {
 			/* Positive j. */
 			hvn[IDX(i-1,j,lda)] = (0.5 * BNM(i,-j-1) * omct * hvn[IDX(i,j+1,lda)]
 				- 0.5 * BNM(i,j-1) * opct * hvn[IDX(i,j-1,lda)]
@@ -187,4 +188,37 @@ int shrotate (complex double *vin, int deg, int lda, trdesc *trans) {
 	free (buf);
 
 	return deg;
+}
+
+int main (int argc, char **argv) {
+	int nmax, n, m, lda, i;
+	complex double *coeff;
+	trdesc trans;
+	double r;
+
+	nmax = atoi (argv[1]);
+	n = atoi (argv[2]);
+	m = atoi (argv[3]);
+
+	trans.sdir[0] = strtod (argv[4], NULL);
+	trans.sdir[1] = strtod (argv[5], NULL);
+	trans.sdir[2] = strtod (argv[6], NULL);
+
+	r = sqrt (DVDOT (trans.sdir, trans.sdir));
+	trans.sdir[0] /= r; trans.sdir[1] /= r; trans.sdir[2] /= r;
+
+	lda = 2 * nmax - 1;
+	
+	coeff = calloc (nmax * lda, sizeof(complex double));
+	coeff[IDX(n,m,lda)] = 1.0;
+
+	shrotate (coeff, nmax, lda, &trans);
+
+	lda *= nmax;
+	for (i = 0; i < lda; ++i)
+		printf ("%20.15g %20.15g\n", creal(coeff[i]), cimag(coeff[i]));
+
+	free (coeff);
+
+	return EXIT_SUCCESS;
 }
