@@ -14,7 +14,7 @@
 #define ANM(n,m) sqrt((double)((n)+1+(m))*((n)+1-(m))/(double)((2*(n)+1)*(2*(n)+3)))
 #define BNM(n,m) SGN(m)*BPNM(n,m)
 
-#define IDX(n,m,lda) ((m) < 0 ? ((n)+1) * (lda) - (m) : (n) * (lda) + (m))
+#define IDX(n,m,lda) ((m) < 0 ? ((n)+1) * (lda) + (m) : (n) * (lda) + (m))
 
 /* Find the polar and rotation angles of the new z-axis for translation. */
 int getangles (double *theta, double *chi, double axis[3]) {
@@ -24,13 +24,13 @@ int getangles (double *theta, double *chi, double axis[3]) {
 
 	st = sqrt (axis[0] * axis[0] + axis[1] * axis[1]);
 
-	/* If the z-axis hasn't changed, nothing changes. */
-	if (*theta < DBL_MIN) {
-		*theta = *chi = 0;
+	/* If theta is zero or pi, the rotation angles vanish. */
+	if (st < DBL_MIN) {
+		*chi = 0;
 		return 0;
 	}
 
-	/* The rotation angle. */
+	/* The rotation angle of the new z-axis. */
 	*chi = acos (axis[0] / st);
 
 	/* Rewrap the angle if it's in the lower half plane. */
@@ -41,7 +41,7 @@ int getangles (double *theta, double *chi, double axis[3]) {
 
 /* Build the initial values of the Hvn function for rotation. */
 int buildhvn (double theta, double *hvn, int nmax, int mmax) {
-	int i, j, dm1, lda, sgn;
+	int i, j, dm1, lda;
 	double fact, *buf, arg;
 
 	dm1 = nmax - 1;
@@ -53,22 +53,22 @@ int buildhvn (double theta, double *hvn, int nmax, int mmax) {
 
 	/* Build the zero-order array. */
 	gsl_sf_legendre_sphPlm_array (dm1, 0, arg, buf);
-	fact = sqrt(4 * M_PI);
 
-	for (j = 0; j < nmax; ++j)
+	for (j = 0; j < nmax; ++j) {
+		fact = sqrt(4 * M_PI / (2 * j + 1));
 		hvn[IDX(j,0,lda)] = fact * buf[j]; 
+	}
 
 	for (i = 1; i < mmax; ++i) {
 		/* Build the other orders. */
 		gsl_sf_legendre_sphPlm_array (dm1, i, arg, buf);
-		sgn = 1 - 2 * (i % 2);
 
 		for (j = i; j < nmax; ++j) {
 			fact = sqrt (4 * M_PI / (2 * j + 1));
 			/* The positive order for this degree. */
-			hvn[IDX(j,i,lda)] = sgn * fact * buf[j - i]; 
+			hvn[IDX(j,i,lda)] = fact * buf[j - i]; 
 			/* The negative order for this degree. */
-			hvn[IDX(j,-i,lda)] = sgn * fact * buf[j - i]; 
+			hvn[IDX(j,-i,lda)] = fact * buf[j - i]; 
 		}
 	}
 
@@ -115,8 +115,7 @@ int nexthvn (double theta, double *hvn, int m, int nmax, int mmax) {
 /* Rotate the SH coefficients according to rotation angles throt and chrot. */
 int shrotate (complex double *vin, int deg, int lda, trdesc *trans) {
 	double *hvn, theta, chi;
-	complex double pfz, mfz, *avp, *avm, *buf,
-		iscale[4] = { 1, -I, -1, I }, imscale[4] = { 1, I, -1, -I };
+	complex double pfz, mfz, *avp, *avm, *buf, iscale[4] = { 1, -I, -1, I };
 	int nmax, i, j, m, idx, nidx;
 
 	nmax = 2 * deg - 1;
@@ -124,8 +123,10 @@ int shrotate (complex double *vin, int deg, int lda, trdesc *trans) {
 	hvn = malloc (nmax * nmax * sizeof(double));
 	buf = malloc (deg * nmax * sizeof(complex double));
 
-	/* Find the rotation angles of the new axis. */
-	getangles (&theta, &chi, trans->sdir);
+	/* Find the rotation angles of the new axis. If the rotation angle
+	 * vanishes, adjust the scaling parameters accordingly. */
+	if (!getangles (&theta, &chi, trans->sdir))
+		iscale[0] = iscale[1] = iscale[2] = iscale[3] = 1.0;
 
 	/* Build the initial values of the H translation function. */
 	buildhvn (theta, hvn, nmax, deg);
@@ -177,10 +178,10 @@ int shrotate (complex double *vin, int deg, int lda, trdesc *trans) {
 	for (i = 0; i < deg; ++i) {
 		vin[IDX(i,0,lda)] = buf[IDX(i,0,nmax)];
 
-		/* Have to scale by (-i)^nu, where nu is the order. */
+		/* Have to scale by exp(i * j * phi), where j is the order. */
 		for (j = 1; j <= i; ++j) {
 			vin[IDX(i,j,lda)] = iscale[j % 4] * buf[IDX(i,j,nmax)];
-			vin[IDX(i,-j,lda)] = imscale[j % 4] * buf[IDX(i,-j,nmax)];
+			vin[IDX(i,-j,lda)] = conj (iscale[j % 4]) * buf[IDX(i,-j,nmax)];
 		}
 	}
 
