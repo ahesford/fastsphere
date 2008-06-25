@@ -89,7 +89,11 @@ int nexthvn (double theta, double *hvn, int m, int nmax, int mmax) {
 
 	/* Perform the recursion. */
 	for (i = m + 2; i < nmax; ++i) {
-		bnm = BNM(i,m);
+		/* NOTE: The negative sign disagrees with the Gumerov and
+		 * Duraiswami paper. This is to correct for the (-1i)^m
+		 * term appearing in their spherical harmonics of order m.
+		 * This has not been thoroughly checked for correctness. */
+		bnm = -BNM(i,m);
 
 		/* The zero-order coefficient. */
 		hvn[IDX(i-1,0,lda)] = (0.5 * BNM(i,-1) * omct * hvn[IDX(i,1,lda)]
@@ -149,7 +153,7 @@ int shrotate (complex double *vin, int deg, int lda, trdesc *trans) {
 	for (m = 1; m < deg; ++m) {
 		/* Calculate the Hvn samples for the next m. */
 		nexthvn (theta, hvn, m - 1, nmax, deg);
-		
+
 		/* Calculate the phase terms. */
 		pfz = cexp (I * m * chi);
 		mfz = cexp (-I * m * chi);
