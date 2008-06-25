@@ -30,11 +30,11 @@ int getangles (double *theta, double *chi, double axis[3]) {
 		return 0;
 	}
 
-	/* The y-coordinate of the new z-axis vector is given by
-	 * y = sin(theta) sin(chi). Hence, chi is easily computed. Note
-	 * that the x-coordiante is x = sin(theta) cos(chi), but this
-	 * doesn't work well, since cosine is an even function. */
-	*chi = asin (axis[1] / st);
+	/* The rotation angle. */
+	*chi = acos (axis[0] / st);
+
+	/* Rewrap the angle if it's in the lower half plane. */
+	if (axis[1] < 0) *chi = 2 * M_PI - *chi;
 
 	return 1;
 }
@@ -88,7 +88,7 @@ int nexthvn (double theta, double *hvn, int m, int nmax, int mmax) {
 	opct = 1.0 + cos(theta);
 
 	/* Perform the recursion. */
-	for (i = 2; i < nmax; ++i) {
+	for (i = m + 2; i < nmax; ++i) {
 		bnm = BNM(i,m);
 
 		/* The zero-order coefficient. */
@@ -214,9 +214,11 @@ int main (int argc, char **argv) {
 
 	shrotate (coeff, nmax, lda, &trans);
 
-	lda *= nmax;
-	for (i = 0; i < lda; ++i)
+	n = lda * nmax;
+	for (i = 0; i < n; ++i) {
+		if (!(i % lda)) printf ("Degree %d\n", i / lda);
 		printf ("%20.15g %20.15g\n", creal(coeff[i]), cimag(coeff[i]));
+	}
 
 	free (coeff);
 
