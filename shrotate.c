@@ -73,11 +73,9 @@ int buildhvn (double theta, double *hvn, int nmax, int mmax) {
 	return nmax;
 }
 
-int nexthvn (double theta, double *hvn, int m, int nmax, int mmax) {
-	int lda, i, j;
+int nexthvn (double theta, double *hvn, int m, int nmax, int lda) {
+	int i, j;
 	double st, omct, opct, bnm, am, bm, bp;
-
-	lda = 2 * mmax - 1;
 
 	st = sin(theta);
 	omct = 1.0 - cos(theta);
@@ -112,18 +110,19 @@ int nexthvn (double theta, double *hvn, int m, int nmax, int mmax) {
 		}
 	}
 
-	return nmax * mmax;
+	return nmax * lda;
 }
 
 /* Rotate the SH coefficients according to rotation angles throt and chrot. */
 int shrotate (complex double *vin, int deg, int lda, trdesc *trans) {
 	double *hvn, theta, chi;
 	complex double pfz, mfz, *avp, *avm, *buf, iscale[4] = { 1, -I, -1, I };
-	int nmax, i, j, m, idx, nidx;
+	int nmax, i, j, m, ldb;
 
 	nmax = 2 * deg - 1;
+	ldb = 2 * nmax - 1;
 
-	hvn = malloc (nmax * nmax * sizeof(double));
+	hvn = malloc (nmax * ldb * sizeof(double));
 	buf = malloc (deg * nmax * sizeof(complex double));
 
 	/* Find the rotation angles of the new axis. If the rotation angle
@@ -132,26 +131,24 @@ int shrotate (complex double *vin, int deg, int lda, trdesc *trans) {
 		iscale[0] = iscale[1] = iscale[2] = iscale[3] = 1.0;
 
 	/* Build the initial values of the H translation function. */
-	buildhvn (theta, hvn, nmax, deg);
+	buildhvn (theta, hvn, nmax, nmax);
 
 	/* Handle the m = 0 case specifically. */
 	for (i = 0; i < deg; ++i) {
 		avp = vin + IDX(i,0,lda);
-		buf[IDX(i,0,nmax)] = (*avp) * hvn[IDX(i,0,nmax)];
+		buf[IDX(i,0,nmax)] = (*avp) * hvn[IDX(i,0,ldb)];
 		
 		/* Handle the positive and negative orders for these degrees. */
 		for (j = 1; j <= i; ++j) {
-			idx = IDX(i,j,nmax);
-			buf[idx] = (*avp) * hvn[idx];
-			idx = IDX(i,-j,nmax);
-			buf[idx] = (*avp) * hvn[idx];
+			buf[IDX(i,j,nmax)] = (*avp) * hvn[IDX(i,j,ldb)];
+			buf[IDX(i,-j,nmax)] = (*avp) * hvn[IDX(i,-j,ldb)];
 		}
 	}
 
 	/* Handle the higher-order cases. */
 	for (m = 1; m < deg; ++m) {
 		/* Calculate the Hvn samples for the next m. */
-		nexthvn (theta, hvn, m - 1, nmax, deg);
+		nexthvn (theta, hvn, m - 1, nmax, ldb);
 
 		/* Calculate the phase terms. */
 		pfz = cexp (I * m * chi);
@@ -161,18 +158,14 @@ int shrotate (complex double *vin, int deg, int lda, trdesc *trans) {
 			avp = vin + IDX(i,m,lda);
 			avm = vin + IDX(i,-m,lda);
 
-			buf[IDX(i,0,nmax)] += hvn[IDX(i,0,nmax)] * (pfz * (*avp) + mfz * (*avm));
+			buf[IDX(i,0,nmax)] += hvn[IDX(i,0,ldb)] * (pfz * (*avp) + mfz * (*avm));
 			
 			/* Handle the positive and negative orders for these degrees. */
 			for (j = 1; j <= i; ++j) {
-				idx = IDX(i,j,nmax);
-				nidx = IDX(i,-j,nmax);
-
-				buf[idx] += pfz * (*avp) * hvn[idx]
-					+ mfz * (*avm) * hvn[nidx];
-
-				buf[nidx] += pfz * (*avp) * hvn[nidx]
-					+ mfz * (*avm) * hvn[idx];
+				buf[IDX(i,j,nmax)] += pfz * (*avp) * hvn[IDX(i,j,ldb)]
+					+ mfz * (*avm) * hvn[IDX(i,-j,ldb)];
+				buf[IDX(i,-j,nmax)] += pfz * (*avp) * hvn[IDX(i,-j,ldb)]
+					+ mfz * (*avm) * hvn[IDX(i,j,ldb)];
 			}
 		}
 	}
