@@ -10,10 +10,6 @@
 #include "translator.h"
 #include "util.h"
 
-#define BPNM(n,m) sqrt((double)((n)-(m)-1)*((n)-(m))/(double)((2*(n)-1)*(2*(n)+1)))
-#define ANM(n,m) sqrt((double)((n)+1+(m))*((n)+1-(m))/(double)((2*(n)+1)*(2*(n)+3)))
-#define BNM(n,m) SGN(m)*BPNM(n,m)
-
 #define IDX(n,m,lda) ((m) < 0 ? ((n)+1) * (lda) + (m) : (n) * (lda) + (m))
 
 /* Find the polar and rotation angles of the new z-axis for translation. */
@@ -89,31 +85,30 @@ int nexthvn (double theta, double *hvn, int m, int nmax, int mmax) {
 
 	/* Perform the recursion. */
 	for (i = m + 2; i < nmax; ++i) {
-		/* NOTE: The negative sign disagrees with the Gumerov and
-		 * Duraiswami paper. This is to correct for the (-1i)^m
-		 * term appearing in their spherical harmonics of order m.
-		 * This has not been thoroughly checked for correctness. */
-		bnm = -BNM(i,m);
+		bnm = (double)((i - m) * (i - m - 1));
+		bp = -0.5 * sqrt(i * (i + 1) / bnm);
+		am = sqrt(i * i / bnm);
+
 
 		/* The zero-order coefficient. */
-		hvn[IDX(i-1,0,lda)] = (0.5 * BNM(i,-1) * omct * hvn[IDX(i,1,lda)]
-				- 0.5 * BNM(i,-1) * opct * hvn[IDX(i,-1,lda)]
-				- ANM(i-1,0) * st * hvn[IDX(i,0,lda)]) / bnm;
+		hvn[IDX(i-1,0,lda)] = am * st * hvn[IDX(i,0,lda)]
+			+ bp * (opct * hvn[IDX(i,-1,lda)] - omct * hvn[IDX(i,1,lda)]);
 
 		/* The non-zero orders. */
 		for (j = 1; j < i; ++j) {
-			bp = BNM(i,j-1);
-			bm = BNM(i,-j-1);
-			am = ANM(i-1,j);
+			bp = 0.5 * sqrt((i - j) * (i - j + 1) / bnm);
+			bm = -0.5 * sqrt((i + j) * (i + j + 1) / bnm);
+			am = sqrt((i + j) * (i - j) / bnm);
 
 			/* Positive j. */
-			hvn[IDX(i-1,j,lda)] = (0.5 * bm * omct * hvn[IDX(i,j+1,lda)]
-				- 0.5 * bp * opct * hvn[IDX(i,j-1,lda)]
-				- am * st * hvn[IDX(i,j,lda)]) / bnm;
+			hvn[IDX(i-1,j,lda)] = am * st * hvn[IDX(i,j,lda)]
+				+ bp * opct * hvn[IDX(i,j-1,lda)]
+				- bm * omct * hvn[IDX(i,j+1,lda)];
+
 			/* Negative j. */
-			hvn[IDX(i-1,-j,lda)] = (0.5 * bp * omct * hvn[IDX(i,-j+1,lda)]
-				- 0.5 * bm * opct * hvn[IDX(i,-j-1,lda)]
-				- am * st * hvn[IDX(i,-j,lda)]) / bnm;
+			hvn[IDX(i-1,-j,lda)] = am * st * hvn[IDX(i,-j,lda)]
+				+ bm * opct * hvn[IDX(i,-j-1,lda)]
+				- bp * omct * hvn[IDX(i,-j+1,lda)];
 		}
 	}
 
