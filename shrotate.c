@@ -79,7 +79,7 @@ int buildhvn (double theta, double *hvn, int nmax, int mmax) {
 
 int nexthvn (double theta, double *hvn, int m, int nmax, int mmax) {
 	int lda, i, j;
-	double st, omct, opct, bnm;
+	double st, omct, opct, bnm, am, bm, bp;
 
 	lda = 2 * mmax - 1;
 
@@ -102,14 +102,18 @@ int nexthvn (double theta, double *hvn, int m, int nmax, int mmax) {
 
 		/* The non-zero orders. */
 		for (j = 1; j < i; ++j) {
+			bp = BNM(i,j-1);
+			bm = BNM(i,-j-1);
+			am = ANM(i-1,j);
+
 			/* Positive j. */
-			hvn[IDX(i-1,j,lda)] = (0.5 * BNM(i,-j-1) * omct * hvn[IDX(i,j+1,lda)]
-				- 0.5 * BNM(i,j-1) * opct * hvn[IDX(i,j-1,lda)]
-				- ANM(i-1,j) * st * hvn[IDX(i,j,lda)]) / bnm;
+			hvn[IDX(i-1,j,lda)] = (0.5 * bm * omct * hvn[IDX(i,j+1,lda)]
+				- 0.5 * bp * opct * hvn[IDX(i,j-1,lda)]
+				- am * st * hvn[IDX(i,j,lda)]) / bnm;
 			/* Negative j. */
-			hvn[IDX(i-1,-j,lda)] = (0.5 * BNM(i,j-1) * omct * hvn[IDX(i,-j+1,lda)]
-				- 0.5 * BNM(i,-j-1) * opct * hvn[IDX(i,-j-1,lda)]
-				- ANM(i-1,-j) * st * hvn[IDX(i,-j,lda)]) / bnm;
+			hvn[IDX(i-1,-j,lda)] = (0.5 * bp * omct * hvn[IDX(i,-j+1,lda)]
+				- 0.5 * bm * opct * hvn[IDX(i,-j-1,lda)]
+				- am * st * hvn[IDX(i,-j,lda)]) / bnm;
 		}
 	}
 
@@ -218,7 +222,7 @@ int main (int argc, char **argv) {
 	coeff[IDX(n,m,lda)] = 1.0;
 
 	shrotate (coeff, nmax, lda, &trans);
-
+	
 	n = lda * nmax;
 	for (i = 0; i < n; ++i) {
 		if (!(i % lda)) printf ("Degree %d\n", i / lda);
