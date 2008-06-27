@@ -51,7 +51,7 @@ int buildhvn (double theta, double *hvn, int nmax, int mmax) {
 
 	for (j = 0; j < nmax; ++j) {
 		fact = sqrt(4 * M_PI / (2 * j + 1));
-		hvn[IDX(j,0,lda)] = fact * buf[j]; 
+		hvn[ELT(0,j,lda)] = fact * buf[j]; 
 	}
 
 	for (i = 1; i < mmax; ++i) {
@@ -61,9 +61,9 @@ int buildhvn (double theta, double *hvn, int nmax, int mmax) {
 		for (j = i; j < nmax; ++j) {
 			fact = sqrt (4 * M_PI / (2 * j + 1));
 			/* The positive order for this degree. */
-			hvn[IDX(j,i,lda)] = fact * buf[j - i]; 
+			hvn[ELT(i,j,lda)] = fact * buf[j - i]; 
 			/* The negative order for this degree. */
-			hvn[IDX(j,-i,lda)] = fact * buf[j - i]; 
+			hvn[ELT(-i,j+1,lda)] = fact * buf[j - i]; 
 		}
 	}
 
@@ -73,23 +73,25 @@ int buildhvn (double theta, double *hvn, int nmax, int mmax) {
 }
 
 int nexthvn (double theta, double *hvn, int m, int nmax, int lda) {
-	int i, j;
+	int i, j, ilim;
 	double st, omct, opct, bnm, am, bm, bp;
 
 	st = sin(theta);
 	omct = 1.0 - cos(theta);
 	opct = 1.0 + cos(theta);
+	
+	ilim = nmax - m;
 
 	/* Perform the recursion. */
-	for (i = m + 2; i < nmax; ++i) {
+	for (i = m + 2; i < ilim; ++i) {
 		bnm = (double)((i - m) * (i - m - 1));
 		bp = -0.5 * sqrt(i * (i + 1) / bnm);
 		am = sqrt(i * i / bnm);
 
 
 		/* The zero-order coefficient. */
-		hvn[IDX(i-1,0,lda)] = am * st * hvn[IDX(i,0,lda)]
-			+ bp * (opct * hvn[IDX(i,-1,lda)] - omct * hvn[IDX(i,1,lda)]);
+		hvn[ELT(0,i-1,lda)] = am * st * hvn[ELT(0,i,lda)]
+			+ bp * (opct * hvn[ELT(-1,i+1,lda)] - omct * hvn[ELT(1,i,lda)]);
 
 		/* The non-zero orders. */
 		for (j = 1; j < i; ++j) {
@@ -98,14 +100,16 @@ int nexthvn (double theta, double *hvn, int m, int nmax, int lda) {
 			am = sqrt((i + j) * (i - j) / bnm);
 
 			/* Positive j. */
-			hvn[IDX(i-1,j,lda)] = am * st * hvn[IDX(i,j,lda)]
-				+ bp * opct * hvn[IDX(i,j-1,lda)]
-				- bm * omct * hvn[IDX(i,j+1,lda)];
+			hvn[ELT(j,i-1,lda)] = am * st * hvn[ELT(j,i,lda)]
+				+ bp * opct * hvn[ELT(j-1,i,lda)]
+				- bm * omct * hvn[ELT(j+1,i,lda)];
 
-			/* Negative j. */
-			hvn[IDX(i-1,-j,lda)] = am * st * hvn[IDX(i,-j,lda)]
-				+ bm * opct * hvn[IDX(i,-j-1,lda)]
-				- bp * omct * hvn[IDX(i,-j+1,lda)];
+			/* Negative j. The special IDX macro must be used
+			 * because the column -j+1 can be negative when j = 1.
+			 * Otherwise, the faster ELT macro can be used. */
+			hvn[ELT(-j,i,lda)] = am * st * hvn[ELT(-j,i+1,lda)]
+				+ bm * opct * hvn[ELT(-j-1,i+1,lda)]
+				- bp * omct * hvn[IDX(-j+1,i,lda)];
 		}
 	}
 
@@ -134,13 +138,13 @@ int shrotate (complex double *vin, int deg, int lda, trdesc *trans) {
 
 	/* Handle the m = 0 case specifically. */
 	for (i = 0; i < deg; ++i) {
-		avp = vin + IDX(i,0,lda);
-		buf[IDX(i,0,nmax)] = (*avp) * hvn[IDX(i,0,ldb)];
+		avp = vin + ELT(i,0,lda);
+		buf[ELT(0,i,nmax)] = (*avp) * hvn[ELT(0,i,ldb)];
 		
 		/* Handle the positive and negative orders for these degrees. */
 		for (j = 1; j <= i; ++j) {
-			buf[IDX(i,j,nmax)] = (*avp) * hvn[IDX(i,j,ldb)];
-			buf[IDX(i,-j,nmax)] = (*avp) * hvn[IDX(i,-j,ldb)];
+			buf[ELT(j,i,nmax)] = (*avp) * hvn[ELT(j,i,ldb)];
+			buf[ELT(-j,i+1,nmax)] = (*avp) * hvn[ELT(-j,i+1,ldb)];
 		}
 	}
 
@@ -154,29 +158,29 @@ int shrotate (complex double *vin, int deg, int lda, trdesc *trans) {
 		mfz = cexp (-I * m * chi);
 		
 		for (i = m; i < deg; ++i) {
-			avp = vin + IDX(i,m,lda);
-			avm = vin + IDX(i,-m,lda);
+			avp = vin + ELT(m,i,lda);
+			avm = vin + ELT(-m,i+1,lda);
 
-			buf[IDX(i,0,nmax)] += hvn[IDX(i,0,ldb)] * (pfz * (*avp) + mfz * (*avm));
+			buf[ELT(0,i,nmax)] += hvn[ELT(0,i,ldb)] * (pfz * (*avp) + mfz * (*avm));
 			
 			/* Handle the positive and negative orders for these degrees. */
 			for (j = 1; j <= i; ++j) {
-				buf[IDX(i,j,nmax)] += pfz * (*avp) * hvn[IDX(i,j,ldb)]
-					+ mfz * (*avm) * hvn[IDX(i,-j,ldb)];
-				buf[IDX(i,-j,nmax)] += pfz * (*avp) * hvn[IDX(i,-j,ldb)]
-					+ mfz * (*avm) * hvn[IDX(i,j,ldb)];
+				buf[ELT(j,i,nmax)] += pfz * (*avp) * hvn[ELT(j,i,ldb)]
+					+ mfz * (*avm) * hvn[ELT(-j,i+1,ldb)];
+				buf[ELT(-j,i+1,nmax)] += pfz * (*avp) * hvn[ELT(-j,i+1,ldb)]
+					+ mfz * (*avm) * hvn[ELT(j,i,ldb)];
 			}
 		}
 	}
 
 	/* Copy the result back to the input buffer. */
 	for (i = 0; i < deg; ++i) {
-		vin[IDX(i,0,lda)] = buf[IDX(i,0,nmax)];
+		vin[ELT(0,i,lda)] = buf[ELT(0,i,nmax)];
 
 		/* Have to scale by exp(i * j * phi), where j is the order. */
 		for (j = 1; j <= i; ++j) {
-			vin[IDX(i,j,lda)] = iscale[j % 4] * buf[IDX(i,j,nmax)];
-			vin[IDX(i,-j,lda)] = conj (iscale[j % 4]) * buf[IDX(i,-j,nmax)];
+			vin[ELT(j,i,lda)] = iscale[j % 4] * buf[ELT(j,i,nmax)];
+			vin[ELT(-j,i+1,lda)] = conj (iscale[j % 4]) * buf[ELT(-j,i+1,nmax)];
 		}
 	}
 
@@ -206,7 +210,7 @@ int main (int argc, char **argv) {
 	lda = 2 * nmax - 1;
 	
 	coeff = calloc (nmax * lda, sizeof(complex double));
-	coeff[IDX(n,m,lda)] = 1.0;
+	coeff[IDX(m,n,lda)] = 1.0;
 
 	shrotate (coeff, nmax, lda, &trans);
 	

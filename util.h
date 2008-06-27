@@ -9,7 +9,8 @@
 #define SGN(a) ((a) < 0 ? -1 : 1)
 
 #define DVDOT(a,b) ((a)[0] * (b)[0] + (a)[1] * (b)[1] + (a)[2] * (b)[2])
-#define IDX(n,m,lda) ((m) < 0 ? ((n)+1) * (lda) + (m) : (n) * (lda) + (m))
+#define ELT(n,m,lda) ((m) * (lda) + (n))
+#define IDX(n,m,lda) ((n) < 0 ? ELT(n,m+1,lda) : ELT(n,m,lda))
 
 int exband (complex double, double);
 int legpoly (int, double, double *);
