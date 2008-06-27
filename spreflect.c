@@ -9,7 +9,7 @@ int spbldrc (complex double *vals, complex double k0, complex double k1,
 		double rho0, double rho1, double r, int ord) {
 	complex double *jl0, *hl0, *jl1, *hl1, *djl0, *dhl0, *djl1, *dhl1,
 		k0r, k1r;
-	double gamma;
+	complex double gamma;
 	int i;
 
 	/* Set up the arrays for all of the Bessel function values needed. */
@@ -25,7 +25,7 @@ int spbldrc (complex double *vals, complex double k0, complex double k1,
 	k0r = k0 * r;
 	k1r = k1 * r;
 
-	gamma = rho0 * creal (k1) / (rho1 * creal (k0));
+	gamma = rho0 * k1 / (rho1 * k0);
 
 	/* Compute the four Bessel function values. */
 	spbesj (jl0, k0r, ord);
@@ -41,8 +41,8 @@ int spbldrc (complex double *vals, complex double k0, complex double k1,
 
 	/* Now build the reflection coefficients for each order. */
 	for (i = 0; i < ord; ++i) {
-		k0r = k0 * jl1[i] * djl0[i] - gamma * k1 * jl0[i] * djl1[i];
-		k1r = gamma * k1 * hl0[i] * djl1[i] - k0 * jl1[i] * dhl0[i];
+		k0r = jl1[i] * djl0[i] - gamma * jl0[i] * djl1[i];
+		k1r = gamma * hl0[i] * djl1[i] - jl1[i] * dhl0[i];
 
 		vals[i] = k0r / k1r;
 	}
