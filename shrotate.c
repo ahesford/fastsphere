@@ -8,9 +8,8 @@
 #include <gsl/gsl_sf_legendre.h>
 
 #include "translator.h"
+#include "shrotate.h"
 #include "util.h"
-
-#define IDX(n,m,lda) ((m) < 0 ? ((n)+1) * (lda) + (m) : (n) * (lda) + (m))
 
 /* Find the polar and rotation angles of the new z-axis for translation. */
 int getangles (double *theta, double *chi, double axis[3]) {
