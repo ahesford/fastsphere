@@ -93,6 +93,24 @@ int shtransinit (complex double *trans, int deg, complex double kr) {
 }
 
 int shtransnext (complex double *trans, int deg, int m) {
-	int nmax, ilim, i, sgnn, sgnl;
+	int nmax, llim, l, sgnn, sgnl, mp1;
 	double bnm, blm, blm1;
+
+	nmax = 2 * deg - 1;
+	llim = nmax - 1 - m;
+
+	mp1 = m + 1;
+	bnm = BNM(mp1, -mp1);
+	sgnn = 1 - 2 * (mp1 % 2);
+	for (l = mp1; l < llim; ++l) {
+		sgnl = 1 - 2 * (l % 2);
+		blm1 = BNM(l+1,m);
+		blm = BNM(l,-mp1);
+
+		trans[ELT(l,mp1,nmax)] = (blm1 * trans[ELT(l+1,m,nmax)]
+				- blm * trans[ELT(l-1,m,nmax)]) / bnm;
+		trans[ELT(mp1,l,nmax)] = sgnn * sgnl * trans[ELT(l,mp1,nmax)];
+	}
+
+	return mp1;
 }
