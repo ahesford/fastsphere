@@ -4,9 +4,7 @@
 #include <math.h>
 
 #include "util.h"
-
-#define ANM(n,m) sqrt((double)((n)+1+(m))*((n)+1-(m))/(double)((2*(n)+1)*(2*(n)+3)))
-#define BNM(n,m) SGN(m)*sqrt((double)((n)-(m)-1)*((n)-(m))/(double)((2*(n)-1)*(2*(n)+1)))
+#include "shtranslate.h"
 
 int shtransrfl (complex double *trans, int n, int m) {
 	int l, llim, sgnm, sgnl, nmax;

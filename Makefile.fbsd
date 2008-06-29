@@ -11,22 +11,17 @@ LFLAGS= $(OPTFLAGS) -L/usr/local/lib -L../spherepack31 -L../gmres
 LIBS= -lgmres -lspherepack -lgsl -lfftw3 -lalapack_r -lptf77blas \
       -lptcblas -latlas_r
 
-SHOBJS= fsht.o shtest.o util.o
-TROBJS= fsht.o translator.o trtest.o spbessel.o util.o
+TROBJS= trtest.o shtranslate.o spbessel.o util.o
 OBJS= config.o fastsphere.o fsht.o init.o scatmat.o farfield.o \
       spbessel.o spreflect.o translator.o util.o
 
-SHTEST= shtest
 TRTEST= trtest
 FASTSPHERE= fastsphere
 
-default: fastsphere shtest trtest
+default: fastsphere trtest
 
 fastsphere: $(OBJS)
 	$(FF) $(LFLAGS) -o $(FASTSPHERE) $(OBJS) $(LIBS)
-
-shtest: $(SHOBJS)
-	$(FF) $(LFLAGS) -o $(SHTEST) $(SHOBJS) $(LIBS)
 
 trtest: $(TROBJS)
 	$(FF) $(LFLAGS) -o $(TRTEST) $(TROBJS) $(LIBS)

@@ -5,10 +5,8 @@
 #include <complex.h>
 #include <math.h>
 
-#include <fftw3.h>
-
-#include "fsht.h"
-#include "translator.h"
+#include "util.h"
+#include "shtranslate.h"
 
 void prtdata (FILE *output, complex double *vals, int nth, int nph, double *theta) {
 	int i, j;
@@ -43,10 +41,9 @@ void readat (FILE *input, complex double *vals, int n) {
 }
 
 int main (int argc, char **argv) {
-	int l, i, j, m, n;
-	shdata dat;
-	complex double *vals, *trans, kr, ka;
-	double sdir[3] = { 0.0, 0.0, 1.0 }, trlen = 10;
+	int l, lda, i, j, m, n;
+	complex double *vals, kr, ka;
+	double trlen = 10;
 	FILE *output;
 	char fname[1024], *ffmt;
 
@@ -58,96 +55,53 @@ int main (int argc, char **argv) {
 	ffmt = argv[3];
 
 	l = exband (ka, 6);
+	lda = 2 * l - 1;
 
 	fprintf (stderr, "Translation of %d harmonics.\n", l);
 
-	fshtinit (&dat, l, 2 * l - 1, 2 * l - 1);
+	j = l * lda;
 
-	j = dat.ntheta * dat.nphi;
-
-	vals = malloc (2 * j * sizeof(complex double));
-	trans = vals + j;
+	vals = malloc (j * sizeof(complex double));
 
 	kr = 2 * M_PI * trlen;
-
-	/* Build the FMM translator in the z-direction. */
-	translator (trans, 2 * l - 1, dat.ntheta, dat.nphi, dat.theta, kr, sdir);
 
 	for (n = 0; n < l; ++n) {
 		fprintf (stderr, "Translating (%d,0)\n", n);
 		memset (vals, 0, j * sizeof(complex double));
-		vals[n * dat.nphi] = 1.0;
-		
-		/* Scale the coefficients in preparation for an inverse transform. */
-		shscale (vals, &dat, -1);
-		
-		/* Translate from SH coefficients to angular samples. */
-		ifsht (vals, &dat);
-		
-		/* Perform the translation. */
-		for (i = 0; i < j; ++i) vals[i] *= trans[i]; 
-		
-		/* Translate from angular samples back to SH coefficients. */
-		ffsht (vals, &dat);
-		
-		/* Scale the coefficients to get the appropriate values. */
-		shscale (vals, &dat, 1);
+		vals[ELT(0,n,lda)] = 1.0;
+
+		shtranslate (vals, l, lda, kr);
 
 		sprintf (fname, ffmt, n, 0);
 		output = fopen (fname, "w");
-		prtdata (output, vals, dat.deg, dat.nphi, NULL);
+		prtdata (output, vals, l, lda, NULL);
 		fclose (output);
 
 		for (m = 1; m <= n; ++m) {
 			fprintf (stderr, "Translating (%d,%d)\n", n, m);
 			memset (vals, 0, j * sizeof(complex double));
-			vals[n * dat.nphi + m] = 1.0;
+			vals[ELT(m,n,lda)] = 1.0;
+
+			shtranslate (vals, l, lda, kr);
 			
-			/* Scale the coefficients in preparation for an inverse transform. */
-			shscale (vals, &dat, -1);
-			
-			/* Translate from SH coefficients to angular samples. */
-			ifsht (vals, &dat);
-			
-			/* Perform the translation. */
-			for (i = 0; i < j; ++i) vals[i] *= trans[i];
-			
-			/* Translate from angular samples back to SH coefficients. */
-			ffsht (vals, &dat);
-			
-			/* Scale the coefficients to get the appropriate values. */
-			shscale (vals, &dat, 1);
 			sprintf (fname, ffmt, n, m);
 			output = fopen (fname, "w");
-			prtdata (output, vals, dat.deg, dat.nphi, NULL);
+			prtdata (output, vals, l, lda, NULL);
 			fclose (output);
 
 			fprintf (stderr, "Translating (%d,%d)\n", n, -m);
 			memset (vals, 0, j * sizeof(complex double));
-			vals[(n + 1) * dat.nphi - m] = 1.0;
-			/* Scale the coefficients in preparation for an inverse transform. */
-			shscale (vals, &dat, -1);
-			
-			/* Translate from SH coefficients to angular samples. */
-			ifsht (vals, &dat);
-			
-			/* Perform the translation. */
-			for (i = 0; i < j; ++i) vals[i] *= trans[i];
-			
-			/* Translate from angular samples back to SH coefficients. */
-			ffsht (vals, &dat);
-			
-			/* Scale the coefficients to get the appropriate values. */
-			shscale (vals, &dat, 1);
+			vals[ELT(-m,n+1,lda)] = 1.0;
+
+			shtranslate (vals, l, lda, kr);
+
 			sprintf (fname, ffmt, n, -m);
 			output = fopen (fname, "w");
-			prtdata (output, vals, dat.deg, dat.nphi, NULL);
+			prtdata (output, vals, l, lda, NULL);
 			fclose (output);
 		}
 	}
 
-
-	fshtfree (&dat);
 	free (vals);
 
 	return EXIT_SUCCESS;
