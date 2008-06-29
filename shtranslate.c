@@ -99,6 +99,7 @@ int shtransnext (complex double *trans, int deg, int m) {
 	nmax = 2 * deg - 1;
 	llim = nmax - 1 - m;
 
+	/* Build the n = m + 1 case for all l, and reflect. */
 	mp1 = m + 1;
 	bnm = BNM(mp1, -mp1);
 	sgnn = 1 - 2 * (mp1 % 2);
@@ -112,5 +113,60 @@ int shtransnext (complex double *trans, int deg, int m) {
 		trans[ELT(mp1,l,nmax)] = sgnn * sgnl * trans[ELT(l,mp1,nmax)];
 	}
 
+	/* Fill out the n > m + 1 cases. */
+	shtransfill (trans, deg, mp1);
+
 	return mp1;
+}
+
+int shtranslate (complex double *coeff, int deg, int lda, complex double kr) {
+	int l, nmax, m, n;
+	complex double *trans, *buf;
+
+	nmax = 2 * deg - 1;
+
+	trans = malloc (nmax * nmax * sizeof(complex double));
+	buf = calloc (deg * nmax, sizeof(complex double));
+
+	/* Build the translator for m = 0. */
+	shtransinit (trans, deg, kr);
+
+	/* Find the coefficients for m = 0. */
+	for (l = 0; l < deg; ++l)
+		for (n = 0; n < deg; ++n) 
+			buf[ELT(0,l,nmax)] += trans[ELT(l,n,nmax)] * coeff[ELT(0,n,lda)];
+
+	shtransnext (trans, deg, 0);
+
+	/* Find the coefficients for values abs(m) > 0. */
+	for (m = 1; m < deg; ++m) {
+		for (l = m; l < deg; ++l) {
+			for (n = m; n < deg; ++n) {
+				/* The positive orders. */
+				buf[ELT(m,l,nmax)] += trans[ELT(l,n,nmax)] * coeff[ELT(m,n,lda)];
+				/* The negative orders. */
+				buf[ELT(-m,l+1,nmax)] += trans[ELT(l,n,nmax)] * coeff[ELT(-m,n+1,lda)];
+			}
+		}
+
+		/* Build the translator for the next order. */
+		shtransnext (trans, deg, m);
+	}
+
+	/* Copy the new coefficients over the old values. */
+	for (l = 0; l < deg; ++l) {
+		/* The zero-order. */
+		coeff[ELT(0,l,lda)] = buf[ELT(0,l,nmax)];
+		for (m = 1; m <= l; ++m) {
+			/* The positive orders. */
+			coeff[ELT(m,l,lda)] = buf[ELT(m,l,nmax)];
+			/* The negative orders. */
+			coeff[ELT(-m,l+1,lda)] = buf[ELT(-m,l+1,nmax)];
+		}
+	}
+
+	free (trans);
+	free (buf);
+
+	return deg;
 }
