@@ -59,7 +59,7 @@ int shtransfill (complex double *trans, int deg, int m) {
 
 			trans[ELT(l,n+1,nmax)] = (alm1 * trans[ELT(l-1,n,nmax)]
 					- alm * trans[ELT(l+1,n,nmax)]
-					- anm1 * trans[ELT(l,n-1,nmax)]) / anm;
+					+ anm1 * trans[ELT(l,n-1,nmax)]) / anm;
 
 			trans[ELT(n+1,l,nmax)] = sgnn * sgnl * trans[ELT(l,n+1,nmax)];
 		}
