@@ -138,7 +138,7 @@ int shrotate (complex double *vin, int deg, int lda, trdesc *trans) {
 
 	/* Handle the m = 0 case specifically. */
 	for (i = 0; i < deg; ++i) {
-		avp = vin + ELT(i,0,lda);
+		avp = vin + ELT(0,i,lda);
 		buf[ELT(0,i,nmax)] = (*avp) * hvn[ELT(0,i,ldb)];
 		
 		/* Handle the positive and negative orders for these degrees. */
