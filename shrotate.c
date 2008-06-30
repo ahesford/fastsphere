@@ -12,15 +12,23 @@
 #include "util.h"
 
 /* Find the polar and rotation angles of the new z-axis for translation. */
-int getangles (double *theta, double *chi, double axis[3]) {
+int getangles (double *theta, double *chi, double *phi, double axis[3]) {
 	double st;
 
 	*theta = acos (axis[2]); /* The polar angle of the new z-axis. */
 
 	st = sqrt (axis[0] * axis[0] + axis[1] * axis[1]);
 
-	/* If theta is zero or pi, the rotation angles vanish. */
-	if (st < DBL_MIN) {
+	/* The default rotation angle of the old z-axis in the new
+	 * coordinate system is pi / 2. */
+	*phi = M_PI_2;
+
+	if (*theta < DBL_EPSILON) {
+		/* No rotation is necessary. */
+		*chi = *phi = 0;
+		return 0;
+	} else if (st < DBL_EPSILON) {
+		/* Flip the z-axis. */
 		*chi = 0;
 		return 0;
 	}
@@ -118,8 +126,8 @@ int nexthvn (double theta, double *hvn, int m, int nmax, int lda) {
 
 /* Rotate the SH coefficients according to rotation angles throt and chrot. */
 int shrotate (complex double *vin, int deg, int lda, trdesc *trans) {
-	double *hvn, theta, chi;
-	complex double pfz, mfz, *avp, *avm, *buf, iscale[4] = { 1, -I, -1, I };
+	double *hvn;
+	complex double pfz, mfz, *avp, *avm, *buf;
 	int nmax, i, j, m, ldb;
 
 	nmax = 2 * deg - 1;
@@ -128,13 +136,8 @@ int shrotate (complex double *vin, int deg, int lda, trdesc *trans) {
 	hvn = malloc (nmax * ldb * sizeof(double));
 	buf = malloc (deg * nmax * sizeof(complex double));
 
-	/* Find the rotation angles of the new axis. If the rotation angle
-	 * vanishes, adjust the scaling parameters accordingly. */
-	if (!getangles (&theta, &chi, trans->sdir))
-		iscale[0] = iscale[1] = iscale[2] = iscale[3] = 1.0;
-
 	/* Build the initial values of the H translation function. */
-	buildhvn (theta, hvn, nmax, nmax);
+	buildhvn (trans->theta, hvn, nmax, nmax);
 
 	/* Handle the m = 0 case specifically. */
 	for (i = 0; i < deg; ++i) {
@@ -151,11 +154,11 @@ int shrotate (complex double *vin, int deg, int lda, trdesc *trans) {
 	/* Handle the higher-order cases. */
 	for (m = 1; m < deg; ++m) {
 		/* Calculate the Hvn samples for the next m. */
-		nexthvn (theta, hvn, m - 1, nmax, ldb);
+		nexthvn (trans->theta, hvn, m - 1, nmax, ldb);
 
 		/* Calculate the phase terms. */
-		pfz = cexp (I * m * chi);
-		mfz = cexp (-I * m * chi);
+		pfz = cexp (I * m * trans->chi);
+		mfz = conj (pfz);
 		
 		for (i = m; i < deg; ++i) {
 			avp = vin + ELT(m,i,lda);
@@ -177,10 +180,12 @@ int shrotate (complex double *vin, int deg, int lda, trdesc *trans) {
 	for (i = 0; i < deg; ++i) {
 		vin[ELT(0,i,lda)] = buf[ELT(0,i,nmax)];
 
-		/* Have to scale by exp(i * j * phi), where j is the order. */
+		/* Have to scale by exp(-i * j * phi), where j is the order. */
 		for (j = 1; j <= i; ++j) {
-			vin[ELT(j,i,lda)] = iscale[j % 4] * buf[ELT(j,i,nmax)];
-			vin[ELT(-j,i+1,lda)] = conj (iscale[j % 4]) * buf[ELT(-j,i+1,nmax)];
+			pfz = cexp (-I * j * trans->phi);
+			mfz = conj (pfz);
+			vin[ELT(j,i,lda)] = pfz * buf[ELT(j,i,nmax)];
+			vin[ELT(-j,i+1,lda)] = mfz * buf[ELT(-j,i+1,nmax)];
 		}
 	}
 
@@ -211,6 +216,9 @@ int main (int argc, char **argv) {
 	
 	coeff = calloc (nmax * lda, sizeof(complex double));
 	coeff[IDX(m,n,lda)] = 1.0;
+
+	/* Find the rotation angles. */
+	getangles (&(trans.theta), &(trans.chi), &(trans.phi), trans.sdir);
 
 	shrotate (coeff, nmax, lda, &trans);
 	
