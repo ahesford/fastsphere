@@ -22,12 +22,7 @@ int getangles (double *theta, double *chi, double *phi, double axis[3]) {
 	 * coordinate system is pi / 2. */
 	*phi = M_PI_2;
 
-	if (*theta < DBL_EPSILON) {
-		/* No rotation is necessary. */
-		*chi = *phi = 0;
-		return 0;
-	} else if (st < DBL_EPSILON) {
-		/* Flip the z-axis. */
+	if (st < DBL_EPSILON) {
 		*chi = 0;
 		return 0;
 	}
@@ -43,7 +38,7 @@ int getangles (double *theta, double *chi, double *phi, double axis[3]) {
 
 /* Build the initial values of the Hvn function for rotation. */
 int buildhvn (double theta, double *hvn, int nmax, int mmax) {
-	int i, j, dm1, lda, sgn;
+	int i, j, dm1, lda;
 	double fact, *buf, arg;
 
 	dm1 = nmax - 1;
@@ -64,10 +59,9 @@ int buildhvn (double theta, double *hvn, int nmax, int mmax) {
 	for (i = 1; i < mmax; ++i) {
 		/* Build the other orders. */
 		gsl_sf_legendre_sphPlm_array (dm1, i, arg, buf);
-		sgn = 1 - 2 * (i % 2);
 
 		for (j = i; j < nmax; ++j) {
-			fact = sgn * sqrt (4 * M_PI / (2 * j + 1));
+			fact = sqrt (4 * M_PI / (2 * j + 1));
 			/* The positive order for this degree. */
 			hvn[ELT(i,j,lda)] = fact * buf[j - i]; 
 			/* The negative order for this degree. */
@@ -100,7 +94,7 @@ int nexthvn (double theta, double *hvn, int m, int nmax, int lda) {
 		/* The zero-order coefficient. */
 		hvn[ELT(0,i-1,lda)] = bp * (omct * hvn[ELT(1,i,lda)]
 				- opct * hvn[ELT(-1,i+1,lda)])
-			- am * st * hvn[ELT(0,i,lda)];
+			+ am * st * hvn[ELT(0,i,lda)];
 
 		/* The non-zero orders. */
 		for (j = 1; j < i; ++j) {
@@ -111,14 +105,14 @@ int nexthvn (double theta, double *hvn, int m, int nmax, int lda) {
 			/* Positive j. */
 			hvn[ELT(j,i-1,lda)] = bm * omct * hvn[ELT(j+1,i,lda)]
 				- bp * opct * hvn[ELT(j-1,i,lda)]
-				- am * st * hvn[ELT(j,i,lda)];
+				+ am * st * hvn[ELT(j,i,lda)];
 
 			/* Negative j. The special IDX macro must be used
 			 * because the column -j+1 can be negative when j = 1.
 			 * Otherwise, the faster ELT macro can be used. */
 			hvn[ELT(-j,i,lda)] = bp * omct * hvn[IDX(-j+1,i,lda)]
 				- bm * opct * hvn[ELT(-j-1,i+1,lda)]
-				- am * st * hvn[ELT(-j,i+1,lda)];
+				+ am * st * hvn[ELT(-j,i+1,lda)];
 		}
 	}
 
@@ -130,7 +124,7 @@ int shrotate (complex double *vin, int deg, int lda,
 		double theta, double chi, double phi) {
 	double *hvn;
 	complex double pfz, mfz, avp, avm, *buf;
-	int nmax, i, j, m, ldb, sgn;
+	int nmax, i, j, m, ldb;
 
 	nmax = 2 * deg - 1;
 	ldb = 2 * nmax - 1;
@@ -162,11 +156,9 @@ int shrotate (complex double *vin, int deg, int lda,
 		pfz = cexp (I * m * chi);
 		mfz = conj (pfz);
 
-		sgn = 1 - 2 * (m % 2);
-		
 		for (i = m; i < deg; ++i) {
-			avp = sgn * vin[ELT(m,i,lda)];
-			avm = sgn * vin[ELT(-m,i+1,lda)];
+			avp = vin[ELT(m,i,lda)];
+			avm = vin[ELT(-m,i+1,lda)];
 
 			buf[ELT(0,i,nmax)] += hvn[ELT(0,i,ldb)] * (pfz * avp + mfz * avm);
 			
@@ -186,11 +178,10 @@ int shrotate (complex double *vin, int deg, int lda,
 
 		/* Have to scale by exp(-i * j * phi), where j is the order. */
 		for (j = 1; j <= i; ++j) {
-			sgn = 1 - 2 * (j % 2);
 			pfz = cexp (-I * j * phi);
 			mfz = conj (pfz);
-			vin[ELT(j,i,lda)] = sgn * pfz * buf[ELT(j,i,nmax)];
-			vin[ELT(-j,i+1,lda)] = sgn * mfz * buf[ELT(-j,i+1,nmax)];
+			vin[ELT(j,i,lda)] = pfz * buf[ELT(j,i,nmax)];
+			vin[ELT(-j,i+1,lda)] = mfz * buf[ELT(-j,i+1,nmax)];
 		}
 	}
 
@@ -228,6 +219,7 @@ int main (int argc, char **argv) {
 	printf ("Theta: %g, Chi: %g, Phi: %g\n", theta, chi, phi);
 
 	shrotate (coeff, nmax, lda, theta, chi, phi);
+	shrotate (coeff, nmax, lda, theta, phi, chi);
 	
 	n = lda * nmax;
 	for (i = 0; i < n; ++i) {
