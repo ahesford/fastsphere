@@ -7,7 +7,6 @@
 
 #include <gsl/gsl_sf_legendre.h>
 
-#include "translator.h"
 #include "shrotate.h"
 #include "util.h"
 
@@ -125,7 +124,8 @@ int nexthvn (double theta, double *hvn, int m, int nmax, int lda) {
 }
 
 /* Rotate the SH coefficients according to rotation angles throt and chrot. */
-int shrotate (complex double *vin, int deg, int lda, trdesc *trans) {
+int shrotate (complex double *vin, int deg, int lda,
+		double theta, double chi, double phi) {
 	double *hvn;
 	complex double pfz, mfz, *avp, *avm, *buf;
 	int nmax, i, j, m, ldb;
@@ -137,7 +137,7 @@ int shrotate (complex double *vin, int deg, int lda, trdesc *trans) {
 	buf = malloc (deg * nmax * sizeof(complex double));
 
 	/* Build the initial values of the H translation function. */
-	buildhvn (trans->theta, hvn, nmax, nmax);
+	buildhvn (theta, hvn, nmax, nmax);
 
 	/* Handle the m = 0 case specifically. */
 	for (i = 0; i < deg; ++i) {
@@ -154,10 +154,10 @@ int shrotate (complex double *vin, int deg, int lda, trdesc *trans) {
 	/* Handle the higher-order cases. */
 	for (m = 1; m < deg; ++m) {
 		/* Calculate the Hvn samples for the next m. */
-		nexthvn (trans->theta, hvn, m - 1, nmax, ldb);
+		nexthvn (theta, hvn, m - 1, nmax, ldb);
 
 		/* Calculate the phase terms. */
-		pfz = cexp (I * m * trans->chi);
+		pfz = cexp (I * m * chi);
 		mfz = conj (pfz);
 		
 		for (i = m; i < deg; ++i) {
@@ -182,7 +182,7 @@ int shrotate (complex double *vin, int deg, int lda, trdesc *trans) {
 
 		/* Have to scale by exp(-i * j * phi), where j is the order. */
 		for (j = 1; j <= i; ++j) {
-			pfz = cexp (-I * j * trans->phi);
+			pfz = cexp (-I * j * phi);
 			mfz = conj (pfz);
 			vin[ELT(j,i,lda)] = pfz * buf[ELT(j,i,nmax)];
 			vin[ELT(-j,i+1,lda)] = mfz * buf[ELT(-j,i+1,nmax)];
@@ -198,19 +198,18 @@ int shrotate (complex double *vin, int deg, int lda, trdesc *trans) {
 int main (int argc, char **argv) {
 	int nmax, n, m, lda, i;
 	complex double *coeff;
-	trdesc trans;
-	double r;
+	double r, theta, phi, chi, sdir[3];
 
 	nmax = atoi (argv[1]);
 	n = atoi (argv[2]);
 	m = atoi (argv[3]);
 
-	trans.sdir[0] = strtod (argv[4], NULL);
-	trans.sdir[1] = strtod (argv[5], NULL);
-	trans.sdir[2] = strtod (argv[6], NULL);
+	sdir[0] = strtod (argv[4], NULL);
+	sdir[1] = strtod (argv[5], NULL);
+	sdir[2] = strtod (argv[6], NULL);
 
-	r = sqrt (DVDOT (trans.sdir, trans.sdir));
-	trans.sdir[0] /= r; trans.sdir[1] /= r; trans.sdir[2] /= r;
+	r = sqrt (DVDOT (sdir, sdir));
+	sdir[0] /= r; sdir[1] /= r; sdir[2] /= r;
 
 	lda = 2 * nmax - 1;
 	
@@ -218,9 +217,9 @@ int main (int argc, char **argv) {
 	coeff[IDX(m,n,lda)] = 1.0;
 
 	/* Find the rotation angles. */
-	getangles (&(trans.theta), &(trans.chi), &(trans.phi), trans.sdir);
+	getangles (&theta, &chi, &phi, sdir);
 
-	shrotate (coeff, nmax, lda, &trans);
+	shrotate (coeff, nmax, lda, theta, chi, phi);
 	
 	n = lda * nmax;
 	for (i = 0; i < n; ++i) {

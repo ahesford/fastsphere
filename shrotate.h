@@ -3,9 +3,7 @@
 
 #include <complex.h>
 
-#include "translator.h"
-
 int getangles (double *, double *, double *, double *);
-int shrotate (complex double *, int, int, trdesc *);
+int shrotate (complex double *, int, int, double, double, double);
 
 #endif /* __SHROTATE_H_ */
