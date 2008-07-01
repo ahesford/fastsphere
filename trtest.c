@@ -43,16 +43,18 @@ void readat (FILE *input, complex double *vals, int n) {
 int main (int argc, char **argv) {
 	int l, lda, i, j, m, n;
 	complex double *vals, kr, ka;
-	double trlen = 10;
+	double trlen = 10, sdir[3], theta, chi, phi;
 	FILE *output;
 	char fname[1024], *ffmt;
 
-	if (argc < 4) return EXIT_FAILURE;
+	if (argc < 6) return EXIT_FAILURE;
 
 	/* Read some parameters. */
 	ka = 2 * M_PI * strtod (argv[1], NULL);
-	trlen = strtod (argv[2], NULL);
-	ffmt = argv[3];
+	sdir[0] = strtod (argv[2], NULL);
+	sdir[1] = strtod (argv[3], NULL);
+	sdir[2] = strtod (argv[4], NULL);
+	ffmt = argv[5];
 
 	l = exband (ka, 6);
 	lda = 2 * l - 1;
@@ -63,39 +65,23 @@ int main (int argc, char **argv) {
 
 	vals = malloc (j * sizeof(complex double));
 
+	trlen = sqrt(DVDOT(sdir,sdir));
 	kr = 2 * M_PI * trlen;
+	sdir[0] /= trlen; sdir[1] /= trlen; sdir[2] /= trlen;
+
+	getangles (&theta, &chi, &phi, sdir);
 
 	for (n = 0; n < l; ++n) {
-		fprintf (stderr, "Translating (%d,0)\n", n);
-		memset (vals, 0, j * sizeof(complex double));
-		vals[ELT(0,n,lda)] = 1.0;
-
-		shtranslate (vals, l, lda, kr);
-
-		sprintf (fname, ffmt, n, 0);
-		output = fopen (fname, "w");
-		prtdata (output, vals, l, lda, NULL);
-		fclose (output);
-
-		for (m = 1; m <= n; ++m) {
-			fprintf (stderr, "Translating (%d,%d)\n", n, m);
+		for (m = -n; m <= n; ++m) {
+			fprintf (stderr, "Translating (%d,%d)\n", n,m);
 			memset (vals, 0, j * sizeof(complex double));
-			vals[ELT(m,n,lda)] = 1.0;
-
+			vals[IDX(m,n,lda)] = 1.0; 
+			
+			shrotate (vals, l, lda, theta, chi, phi);
 			shtranslate (vals, l, lda, kr);
+			shrotate (vals, l, lda, theta, phi, chi); 
 			
 			sprintf (fname, ffmt, n, m);
-			output = fopen (fname, "w");
-			prtdata (output, vals, l, lda, NULL);
-			fclose (output);
-
-			fprintf (stderr, "Translating (%d,%d)\n", n, -m);
-			memset (vals, 0, j * sizeof(complex double));
-			vals[ELT(-m,n+1,lda)] = 1.0;
-
-			shtranslate (vals, l, lda, kr);
-
-			sprintf (fname, ffmt, n, -m);
 			output = fopen (fname, "w");
 			prtdata (output, vals, l, lda, NULL);
 			fclose (output);
