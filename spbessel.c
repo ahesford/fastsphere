@@ -75,7 +75,7 @@ complex double dspbesh0 (complex double x) {
 
 	fact = (x + I) / (x * x);
 
-	return fact * cexp (1i * x);
+	return fact * cexp (I * x);
 }
 
 /* Returns the derivative of the zero-order spherical Bessel function. */
