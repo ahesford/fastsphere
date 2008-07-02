@@ -89,7 +89,7 @@ int nextrot (complex double *rot, int l, int lda) {
 
 		buf[ELT(m,mp,ldb)] = (cmm * rot[ELT(m+1,mp-1,lda)]
 				- cpm * rot[ELT(m-1,mp-1,lda)]) / 2.0
-			-SC * dmm * rot[ELT(m,mp-1,lda)];
+			- SC * dmm * rot[ELT(m,mp-1,lda)];
 
 		/* Use the IDX macro to avoid issues when -m+1 is
 		 * not negative, just as above. */
@@ -112,12 +112,28 @@ int nextrot (complex double *rot, int l, int lda) {
 	return l * lda;
 }
 
+/* Rotate about the z-axis by an angle theta. */
+int zrotate (complex double *vin, int deg, int lda, double theta) {
+	int l, m;
+	complex double fact;
+
+	for (m = 1; m < deg; ++m) {
+		fact = cexp(I * m * theta);
+		for (l = m; l < deg; ++l) {
+			vin[ELT(m,l,lda)] *= fact;
+			vin[ELT(-m,l+1,lda)] *= conj(fact);
+		}
+	}
+
+	return lda;
+}
+
 /* Rotate the SH coefficients so the old y-axis coincides with the
  * new z-axis, the old z-axis coincides with the new y-axis and the
  * old x-axis is the negative of the new x-axis. */
-int shrotate (complex double *vin, int deg, int lda) {
+int xrotate (complex double *vin, int deg, int lda) {
 	complex double *rot, *buf, *vptr;
-	int l, m, mp, ldb, sm, smp;
+	int l, m, mp, ldb, sm;
 
 	ldb = 2 * deg - 1;
 
@@ -155,8 +171,8 @@ int shrotate (complex double *vin, int deg, int lda) {
 				buf[ldb-mp] += sm * conj(rot[ELT(m,mp,ldb)]) * vptr[lda-m];
 			}
 
-			smp = 1 - 2 * (mp % 2);
-			buf[ldb-mp] *= smp;
+			sm = 1 - 2 * (mp % 2);
+			buf[ldb-mp] *= sm;
 		}
 
 		/* Copy the finished column into the input. */
@@ -173,22 +189,45 @@ int shrotate (complex double *vin, int deg, int lda) {
 	return deg;
 }
 
+int shrotate (complex double *vin, int deg, int lda,
+		double theta, double chi, double phi) {
+	int nrot = 0;
+
+	if (fabs(chi) > DBL_EPSILON) {
+		zrotate (vin, deg, lda, chi);
+		++nrot;
+	}
+
+	if (fabs(theta) > DBL_EPSILON) {
+		xrotate (vin, deg, lda);
+		zrotate (vin, deg, lda, theta);
+		xrotate (vin, deg, lda);
+		++nrot;
+	}
+
+	if (fabs(phi) > DBL_EPSILON) {
+		zrotate (vin, deg, lda, phi);
+		++nrot;
+	}
+
+	return nrot;
+}
+
 int main (int argc, char **argv) {
 	int nmax, n, m, lda, i;
 	complex double *vals, *ptr;
 
-	nmax = atoi(argv[1]);
-	n = atoi(argv[2]);
-	m = atoi(argv[3]);
+	n = atoi(argv[1]);
+	m = atoi(argv[2]);
 
+	nmax = n + 1;
 	lda = 2 * nmax - 1;
 
 	vals = calloc (nmax * lda, sizeof(complex double));
 	vals[IDX(m,n,lda)] = 1.0;
 
 	/* Call the rotation. */
-	shrotate (vals, nmax, lda);
-	/* shrotate (vals, nmax, lda); */
+	xrotate (vals, nmax, lda);
 
 	printf ("Degree %d, original order %d\n", n, m);
 	for (i = 0, ptr = vals + ELT(0,n,lda); i < lda; ++i, ++ptr)
