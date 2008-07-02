@@ -5,10 +5,10 @@
 #include <math.h>
 #include <float.h>
 
-#include <gsl/gsl_sf_legendre.h>
-
 #include "shrotate.h"
 #include "util.h"
+
+#define SC (-I * M_SQRT1_2)
 
 /* Find the polar and rotation angles of the new z-axis for translation. */
 int getangles (double *theta, double *chi, double *phi, double axis[3]) {
@@ -36,157 +36,165 @@ int getangles (double *theta, double *chi, double *phi, double axis[3]) {
 	return 1;
 }
 
-/* Build the initial values of the Hvn function for rotation. */
-int buildhvn (double theta, double *hvn, int nmax, int mmax) {
-	int i, j, dm1, lda;
-	double fact, *buf, arg;
+int nextrot (complex double *rot, int l, int lda) {
+	int mp, m, cnum, dnum, cden, ldb;
+	double cpm, cmm, dmm;
+	complex double *buf;
 
-	dm1 = nmax - 1;
-	lda = 2 * mmax - 1;
+	ldb = 2 * l + 1;
+	buf = malloc ((l + 1) * ldb * sizeof(complex double));
 
-	arg = cos (theta);
+	for (mp = 0; mp < l; ++mp) {
+		/* First handle the m = 0 case. */
+		cden = 2 * (l + mp) * (l - mp);
+		cnum = l * (l - 1);
+		cpm = sqrt((double)cnum / (double)cden);
 
-	buf = malloc (nmax * sizeof(double));
+		buf[ELT(0,mp,ldb)] =
+			SC * cpm * (rot[ELT(-1,mp+1,lda)] + rot[ELT(1,mp,lda)]);
 
-	/* Build the zero-order array. */
-	gsl_sf_legendre_sphPlm_array (dm1, 0, arg, buf);
-
-	for (j = 0; j < nmax; ++j) {
-		fact = sqrt(4 * M_PI / (2 * j + 1));
-		hvn[ELT(0,j,lda)] = fact * buf[j]; 
+		/* Now handle the nonzero m. */
+		for (m = 1; m <= l; ++m) {
+			cnum = (l + m) * (l + m - 1);
+			cpm = sqrt((double)cnum / (double)cden);
+			cnum = (l - m) * (l - m - 1);
+			cmm = sqrt((double)cnum / (double)cden);
+			
+			buf[ELT(m,mp,ldb)] = SC * (cpm * rot[ELT(m-1,mp,lda)]
+					+ cmm * rot[ELT(m+1,mp,lda)]);
+			/* For the negative, -m+1 can be nonnegative, so
+			 * use the IDX macro to avoid errors. */
+			buf[ELT(-m,mp+1,ldb)] = SC * (cmm * rot[ELT(-m-1,mp+1,lda)]
+					+ cpm * rot[IDX(-m+1,mp,lda)]);
+		}
 	}
 
-	for (i = 1; i < mmax; ++i) {
-		/* Build the other orders. */
-		gsl_sf_legendre_sphPlm_array (dm1, i, arg, buf);
+	/* Handle the final case. */
+	mp = l;
+	cden = (l + mp) * (l + mp - 1);
+	cnum = l * (l - 1);
+	cpm = sqrt((double)cnum / (double)cden);
+	dmm = (double)l * sqrt(2.0 / (double)cden);
 
-		for (j = i; j < nmax; ++j) {
-			fact = sqrt (4 * M_PI / (2 * j + 1));
-			/* The positive order for this degree. */
-			hvn[ELT(i,j,lda)] = fact * buf[j - i]; 
-			/* The negative order for this degree. */
-			hvn[ELT(-i,j+1,lda)] = fact * buf[j - i]; 
+	buf[ELT(0,mp,ldb)] = cpm * (rot[ELT(1,mp-1,lda)] - rot[ELT(-1,mp,lda)]) / 2.0
+		- SC * dmm * rot[ELT(0,mp-1,lda)];
+
+	for (m = 1; m <= l; ++m) {
+		cnum = (l + m) * (l + m - 1);
+		cpm = sqrt((double)cnum / (double)cden);
+		cnum = (l - m) * (l - m - 1);
+		cmm = sqrt((double)cnum / (double)cden);
+		dnum = 2 * (l + m) * (l - m);
+		dmm = sqrt((double)dnum / (double)cden);
+
+		buf[ELT(m,mp,ldb)] = (cmm * rot[ELT(m+1,mp-1,lda)]
+				- cpm * rot[ELT(m-1,mp-1,lda)]) / 2.0
+			-SC * dmm * rot[ELT(m,mp-1,lda)];
+
+		/* Use the IDX macro to avoid issues when -m+1 is
+		 * not negative, just as above. */
+		buf[ELT(-m,mp+1,ldb)] = (cpm * rot[IDX(-m+1,mp-1,lda)]
+				- cmm * rot[ELT(-m-1,mp,lda)]) / 2.0
+			- SC * dmm * rot[ELT(-m,mp,lda)];
+	}
+
+	/* Copy the buffer into the original location. */
+	for (mp = 0; mp <= l; ++mp) {
+		rot[ELT(0,mp,lda)] = buf[ELT(0,mp,ldb)];
+
+		for (m = 1; m <= l; ++m) {
+			rot[ELT(m,mp,lda)] = buf[ELT(m,mp,ldb)];
+			rot[ELT(-m,mp+1,lda)] = buf[ELT(-m,mp+1,ldb)];
 		}
 	}
 
 	free (buf);
-
-	return nmax;
+	return l * lda;
 }
 
-int nexthvn (double theta, double *hvn, int m, int nmax, int lda) {
-	int i, j, ilim;
-	double st, omct, opct, bnm, am, bm, bp;
+/* Rotate the SH coefficients so the old y-axis coincides with the
+ * new z-axis, the old z-axis coincides with the new y-axis and the
+ * old x-axis is the negative of the new x-axis. */
+int shrotate (complex double *vin, int deg, int lda) {
+	complex double *rot, *buf, *vptr;
+	int l, m, mp, ldb, sm, smp;
 
-	st = sin(theta);
-	omct = 1.0 - cos(theta);
-	opct = 1.0 + cos(theta);
-	
-	ilim = nmax - m;
+	ldb = 2 * deg - 1;
 
-	/* Perform the recursion. */
-	for (i = m + 2; i < ilim; ++i) {
-		bnm = (double)((i - m) * (i - m - 1));
-		bp = -0.5 * sqrt(i * (i + 1) / bnm);
-		am = sqrt(i * i / bnm);
+	rot = calloc (deg * ldb, sizeof(complex double));
+	buf = malloc (ldb * sizeof(complex double));
 
+	/* The initial rotator doesn't rotate anything. */
+	rot[0] = 1.0;
 
-		/* The zero-order coefficient. */
-		hvn[ELT(0,i-1,lda)] = bp * (omct * hvn[ELT(1,i,lda)]
-				- opct * hvn[ELT(-1,i+1,lda)])
-			+ am * st * hvn[ELT(0,i,lda)];
+	for (l = 1; l < deg; ++l) {
+		/* Compute the next rotation from the previous one. */
+		nextrot (rot, l, ldb);
 
-		/* The non-zero orders. */
-		for (j = 1; j < i; ++j) {
-			bp = 0.5 * sqrt((i - j) * (i - j + 1) / bnm);
-			bm = -0.5 * sqrt((i + j) * (i + j + 1) / bnm);
-			am = sqrt((i + j) * (i - j) / bnm);
+		/* Find the column offset. */
+		vptr = vin + ELT(0,l,lda);
 
-			/* Positive j. */
-			hvn[ELT(j,i-1,lda)] = bm * omct * hvn[ELT(j+1,i,lda)]
-				- bp * opct * hvn[ELT(j-1,i,lda)]
-				+ am * st * hvn[ELT(j,i,lda)];
+		/* Handle the zero-order coefficient. */
+		*buf = rot[ELT(0,0,ldb)] * vptr[0];
 
-			/* Negative j. The special IDX macro must be used
-			 * because the column -j+1 can be negative when j = 1.
-			 * Otherwise, the faster ELT macro can be used. */
-			hvn[ELT(-j,i,lda)] = bp * omct * hvn[IDX(-j+1,i,lda)]
-				- bm * opct * hvn[ELT(-j-1,i+1,lda)]
-				+ am * st * hvn[ELT(-j,i+1,lda)];
+		for (m = 1; m <= l; ++m) {
+			*buf += rot[ELT(m,0,ldb)] * vptr[m];
+			*buf += rot[ELT(-m,1,ldb)] * vptr[lda-m];
 		}
-	}
 
-	return nmax * lda;
-}
-
-/* Rotate the SH coefficients according to rotation angles throt and chrot. */
-int shrotate (complex double *vin, int deg, int lda,
-		double theta, double chi, double phi) {
-	double *hvn;
-	complex double pfz, mfz, avp, avm, *buf;
-	int nmax, i, j, m, ldb;
-
-	nmax = 2 * deg - 1;
-	ldb = 2 * nmax - 1;
-
-	hvn = malloc (nmax * ldb * sizeof(double));
-	buf = malloc (deg * nmax * sizeof(complex double));
-
-	/* Build the initial values of the H translation function. */
-	buildhvn (theta, hvn, nmax, nmax);
-
-	/* Handle the m = 0 case specifically. */
-	for (i = 0; i < deg; ++i) {
-		avp = vin[ELT(0,i,lda)];
-		buf[ELT(0,i,nmax)] = avp * hvn[ELT(0,i,ldb)];
-		
-		/* Handle the positive and negative orders for these degrees. */
-		for (j = 1; j <= i; ++j) {
-			buf[ELT(j,i,nmax)] = avp * hvn[ELT(j,i,ldb)];
-			buf[ELT(-j,i+1,nmax)] = avp * hvn[ELT(-j,i+1,ldb)];
-		}
-	}
-
-	/* Handle the higher-order cases. */
-	for (m = 1; m < deg; ++m) {
-		/* Calculate the Hvn samples for the next m. */
-		nexthvn (theta, hvn, m - 1, nmax, ldb);
-
-		/* Calculate the phase terms. */
-		pfz = cexp (I * m * chi);
-		mfz = conj (pfz);
-
-		for (i = m; i < deg; ++i) {
-			avp = vin[ELT(m,i,lda)];
-			avm = vin[ELT(-m,i+1,lda)];
-
-			buf[ELT(0,i,nmax)] += hvn[ELT(0,i,ldb)] * (pfz * avp + mfz * avm);
+		/* Handle the nonzero orders. */
+		for (mp = 1; mp <= l; ++mp) {
+			buf[mp] = rot[ELT(0,mp,ldb)] * vptr[0];
+			buf[ldb-mp] = conj(rot[ELT(0,mp,ldb)]) * vptr[0];
 			
-			/* Handle the positive and negative orders for these degrees. */
-			for (j = 1; j <= i; ++j) {
-				buf[ELT(j,i,nmax)] += pfz * avp * hvn[ELT(j,i,ldb)]
-					+ mfz * avm * hvn[ELT(-j,i+1,ldb)];
-				buf[ELT(-j,i+1,nmax)] += pfz * avp * hvn[ELT(-j,i+1,ldb)]
-					+ mfz * avm * hvn[ELT(j,i,ldb)];
+			for (m = 1; m <= l; ++m) {
+				sm = 1 - 2 * (m % 2);
+				buf[mp] += rot[ELT(m,mp,ldb)] * vptr[m];
+				buf[mp] += rot[ELT(-m,mp+1,ldb)] * vptr[lda-m];
+				buf[ldb-mp] += sm * conj(rot[ELT(-m,mp+1,ldb)]) * vptr[m];
+				buf[ldb-mp] += sm * conj(rot[ELT(m,mp,ldb)]) * vptr[lda-m];
 			}
+
+			smp = 1 - 2 * (mp % 2);
+			buf[ldb-mp] *= smp;
+		}
+
+		/* Copy the finished column into the input. */
+		*vptr = *buf;
+		for (mp = 1; mp <= l; ++mp) {
+			vptr[mp] = buf[mp];
+			vptr[lda-mp] = buf[ldb-mp];
 		}
 	}
 
-	/* Copy the result back to the input buffer. */
-	for (i = 0; i < deg; ++i) {
-		vin[ELT(0,i,lda)] = buf[ELT(0,i,nmax)];
-
-		/* Have to scale by exp(-i * j * phi), where j is the order. */
-		for (j = 1; j <= i; ++j) {
-			pfz = cexp (-I * j * phi);
-			mfz = conj (pfz);
-			vin[ELT(j,i,lda)] = pfz * buf[ELT(j,i,nmax)];
-			vin[ELT(-j,i+1,lda)] = mfz * buf[ELT(-j,i+1,nmax)];
-		}
-	}
-
-	free (hvn);
+	free (rot);
 	free (buf);
 
 	return deg;
+}
+
+int main (int argc, char **argv) {
+	int nmax, n, m, lda, i;
+	complex double *vals, *ptr;
+
+	nmax = atoi(argv[1]);
+	n = atoi(argv[2]);
+	m = atoi(argv[3]);
+
+	lda = 2 * nmax - 1;
+
+	vals = calloc (nmax * lda, sizeof(complex double));
+	vals[IDX(m,n,lda)] = 1.0;
+
+	/* Call the rotation. */
+	shrotate (vals, nmax, lda);
+	/* shrotate (vals, nmax, lda); */
+
+	printf ("Degree %d, original order %d\n", n, m);
+	for (i = 0, ptr = vals + ELT(0,n,lda); i < lda; ++i, ++ptr)
+		printf ("%20.15g %20.15g\n", creal(*ptr), cimag(*ptr));
+
+	free (vals);
+
+	return EXIT_SUCCESS;
 }
