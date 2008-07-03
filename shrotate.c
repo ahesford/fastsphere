@@ -210,28 +210,3 @@ int shrotate (complex double *vin, int deg, int lda,
 
 	return nrot;
 }
-
-int main (int argc, char **argv) {
-	int nmax, n, m, lda, i;
-	complex double *vals, *ptr;
-
-	n = atoi(argv[1]);
-	m = atoi(argv[2]);
-
-	nmax = n + 1;
-	lda = 2 * nmax - 1;
-
-	vals = calloc (nmax * lda, sizeof(complex double));
-	vals[IDX(m,n,lda)] = 1.0;
-
-	/* Call the rotation. */
-	xrotate (vals, nmax, lda);
-
-	printf ("Degree %d, original order %d\n", n, m);
-	for (i = 0, ptr = vals + ELT(0,n,lda); i < lda; ++i, ++ptr)
-		printf ("%20.15g %20.15g\n", creal(*ptr), cimag(*ptr));
-
-	free (vals);
-
-	return EXIT_SUCCESS;
-}
