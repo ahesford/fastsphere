@@ -11,5 +11,6 @@ int sphinit (sptype *, int, bgtype *, shdata *);
 void clrspheres (sptype *, int);
 
 trdesc* sphbldfmm (spscat *, int, bgtype *, shdata *);
+void sphclrfmm (trdesc *, int);
 
 #endif /* __INIT_H_ */

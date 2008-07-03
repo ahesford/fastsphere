@@ -5,6 +5,7 @@
 #include "fastsphere.h"
 #include "translator.h"
 #include "spreflect.h"
+#include "shrotate.h"
 #include "util.h"
 #include "init.h"
 
@@ -47,55 +48,28 @@ void clrspheres (sptype *spt, int nspt) {
 }
 
 trdesc* sphbldfmm (spscat *sph, int nsph, bgtype *bg, shdata *shtr) {
-	int i, j, k, nsq, nterm, trunc;
-	complex double *tptr;
+	int i, j, k, nsq, nterm;
 	trdesc *trans;
-	long ntrans;
 
 	nsq = nsph * nsph;
 	nterm = shtr->ntheta * shtr->nphi;
-	trunc = 2 * shtr->deg - 1;
 
 	trans = calloc (nsq, sizeof(trdesc));
 
-	/* Allocate space for all diagonal translators. */
-	ntrans = (long) (nsq - nsph) * (long) nterm;
-
-	/* The self translator for the first sphere is never used, but it
-	 * points to the backing store for all other diagonal translators. */
-	trans->trdata = malloc (ntrans * sizeof(complex double));
-	tptr = trans->trdata;
-
-	/* Set up the translator pointers into the backing store.
-	 * This is a separate loop because the construction loop
-	 * should be parallelized. */
-	for (k = 1; k < nsq; ++k) {
-		j = k / nsph;	/* Source sphere. */
-		i = k % nsph;	/* Destination sphere. */
-
-		if (i == j) {
-			trans[k].trdata = NULL;
-			trans[k].type = TRNONE;
-			continue;
-		}
-
-		trans[k].trdata = tptr;
-		trans[k].type = TRPLANE;
-		tptr += nterm;
-	}
-
+	/* Set up the translators in parallel. */
 #pragma omp parallel private(i,j,k) default(shared)
 {
-	/* These variables are private. */
-	double dist, *sdir;
+	double dist, *sdir, trunc, rad;
 
-	/* Start with the first valid translator. */
 #pragma omp for
 	for (k = 1; k < nsq; ++k) {
 		j = k / nsph;	/* Source sphere. */
 		i = k % nsph;	/* Destination sphere. */
 
-		if (i == j) continue;
+		if (i == j) {
+			trans[k].type = TRNONE;
+			continue;
+		}
 
 		/* Convenient pointer to the translation axis. */
 		sdir = trans[k].sdir;
@@ -112,12 +86,37 @@ trdesc* sphbldfmm (spscat *sph, int nsph, bgtype *bg, shdata *shtr) {
 		/* Normalize translation direction. */
 		sdir[0] /= dist; sdir[1] /= dist; sdir[2] /= dist;
 
-		trans[k].trunc = trunc;
+		trunc = MAX((sph[i].spdesc)->deg, (sph[j].spdesc)->deg);
+		trans[k].trunc = 2 * trunc - 1;
 
-		/* Build the translator. */
+		/* Find the rotation angles of the translation direction. */
+		getangles (&(trans[k].theta), &(trans[k].chi), &(trans[k].phi), sdir);
+
+		/* Find the maximum radius for this translation. */
+		rad = MAX((sph[i].spdesc)->r, (sph[j].spdesc)->r);
+
+		/* If this is a dense translation, do nothing else. */
+		if (dist < 4 * rad) {
+			trans[k].type = TRDENSE;
+			continue;
+		}
+
+		/* Set the translator type. */
+		trans[k].type = TRPLANE;
+
+		/* Allocate and build the translator array. */
+		trans[k].trdata = malloc (nterm * sizeof(complex double));
 		translator (trans + k, shtr->ntheta, shtr->nphi, shtr->theta);
 	}
 }
 
 	return trans;
+}
+
+void sphclrfmm (trdesc *trans, int ntrans) {
+	int i;
+
+	for (i = 0; i < ntrans; ++i)
+		if (trans[i].type == TRPLANE && trans[i].trdata)
+			free (trans[i].trdata);
 }

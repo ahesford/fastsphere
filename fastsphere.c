@@ -160,7 +160,7 @@ int main (int argc, char **argv) {
 	fclose (fptr);
 
 	clrspheres (sparms, nsptype);
-	free (trans->trdata);
+	sphclrfmm (trans, nspheres * nspheres);
 	free (trans);
 	free (rhs);
 	free (radpat);
