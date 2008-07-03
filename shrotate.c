@@ -154,8 +154,9 @@ int xrotate (complex double *vin, int deg, int lda) {
 		*buf = rot[ELT(0,0,ldb)] * vptr[0];
 
 		for (m = 1; m <= l; ++m) {
+			sm = 1 - 2 * (m % 2);
 			*buf += rot[ELT(m,0,ldb)] * vptr[m];
-			*buf += rot[ELT(-m,1,ldb)] * vptr[lda-m];
+			*buf += sm * rot[ELT(-m,1,ldb)] * vptr[lda-m];
 		}
 
 		/* Handle the nonzero orders. */
@@ -166,13 +167,10 @@ int xrotate (complex double *vin, int deg, int lda) {
 			for (m = 1; m <= l; ++m) {
 				sm = 1 - 2 * (m % 2);
 				buf[mp] += rot[ELT(m,mp,ldb)] * vptr[m];
-				buf[mp] += rot[ELT(-m,mp+1,ldb)] * vptr[lda-m];
+				buf[mp] += sm * rot[ELT(-m,mp+1,ldb)] * vptr[lda-m];
 				buf[ldb-mp] += sm * conj(rot[ELT(-m,mp+1,ldb)]) * vptr[m];
-				buf[ldb-mp] += sm * conj(rot[ELT(m,mp,ldb)]) * vptr[lda-m];
+				buf[ldb-mp] += conj(rot[ELT(m,mp,ldb)]) * vptr[lda-m];
 			}
-
-			sm = 1 - 2 * (mp % 2);
-			buf[ldb-mp] *= sm;
 		}
 
 		/* Copy the finished column into the input. */
