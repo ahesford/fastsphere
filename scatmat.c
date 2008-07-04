@@ -2,6 +2,10 @@
 #include <complex.h>
 #include <string.h>
 
+#ifdef _OPENMP
+#include <omp.h>
+#endif /* _OPENMP */
+
 #include "fastsphere.h"
 #include "spreflect.h"
 #include "translator.h"
@@ -35,39 +39,127 @@ int buildrhs (complex double *rhs, spscat *spl, int nsph, shdata *shtr) {
 
 int scatmat (complex double *vout, complex double *vin, spscat *spl,
 		int nsph, trdesc *trans, shdata *shtr) {
-	int i, j, k, off, nterm, n;
-	complex double *buf, *voptr, *viptr;
+	int off, k, nterm, n, nsq;
+	complex double *buf, *oshc, *voptr, *viptr;
+#ifdef _OPENMP
+	/* This is the locking code, to orchestrate access to common output
+	 * buffers. */
+	omp_lock_t *plock, *slock;
+
+	/* One buffer for each sphere, for each of plane waves and harmonics. */
+	plock = malloc (2 * nsph * sizeof(omp_lock_t));
+	slock = plock + nsph;
+
+	for (off = 0; off < nsph; ++off) {
+		omp_init_lock (plock + off);
+		omp_init_lock (slock + off);
+	}
+#endif /* _OPENMP */
 
 	nterm = shtr->ntheta * shtr->nphi;
 	n = nterm * nsph;
+	nsq = nsph * nsph;
 
-	buf = calloc (n, sizeof(complex double));
+	buf = calloc (2 * n, sizeof(complex double));
+	oshc = buf + n;
 
-#pragma omp parallel for private(i,j,k,voptr,viptr) default(shared)
-	for (i = 0; i < nsph; ++i) {
-		voptr = buf + i * nterm;
+	/* Copy the outgoing plane wave coefficients into a temporary vector. */
+	memcpy (oshc, vin, n * sizeof(complex double));
 
-		/* Translate all outgoing fields to the current sphere. */
-		for (j = 0; j < nsph; ++j) {
-			if (i == j) continue;
-			off = j * nsph + i;
+	/* Zero out the output buffer. */
+	memset (vout, 0, n * sizeof(complex double));
+
+	/* Transform all outgoing plane waves into spherical harmonics. */
+#pragma omp parallel for private(off) default(shared)
+	for (off = 0; off < nsph; ++off)
+		ffsht (oshc + off * nterm, shtr);
+
+	/* Perform the translations. */
+#pragma omp parallel private(off,k,voptr,viptr) default(shared)
+{
+	complex double *dtr;
+	int i, j;
+
+	/* Buffer for doing in-place spherical harmonic translations. */
+	dtr = malloc (nterm * sizeof(complex double));
+
+#pragma omp for
+	for (off = 0; off < nsq; ++off) {
+		j = off / nsph;	/* Source sphere. */
+		i = off % nsph;	/* Destination sphere. */
+
+		/* Don't bother with self-translations. */
+		if (i == j) continue;
+
+		if (trans[off].type == TRPLANE) {
+			/* Do the diagonal, plane-wave translation. */
+#ifdef _OPENMP
+			omp_set_lock (plock + i);
+#endif
+			voptr = vout + i * nterm;
 			viptr = vin + j * nterm;
-
+			
 			for (k = 0; k < nterm; ++k) 
 				voptr[k] += trans[off].trdata[k] * viptr[k];
-		}
+#ifdef _OPENMP
+			omp_unset_lock (plock + i);
+#endif
+		} else if (trans[off].type == TRDENSE) {
+			/* Do the dense, spherical-harmonic translation. */
+			memcpy (dtr, oshc + j * nterm, nterm * sizeof(complex double));
 
-		/* Apply the reflection coefficient in SH space. */
+			shrotate (dtr, shtr->deg, shtr->nphi, trans[off].theta,
+					trans[off].chi, trans[off].phi);
+			shtranslate (dtr, shtr->deg, shtr->nphi, trans[off].kr);
+			shrotate (dtr, shtr->deg, shtr->nphi, trans[off].theta,
+					trans[off].phi, trans[off].chi);
+#ifdef _OPENMP
+			omp_set_lock (slock + i);
+#endif
+			voptr = buf + i * nterm;
+			for (k = 0; k < nterm; ++k)
+				voptr[k] += dtr[k];
+#ifdef _OPENMP
+			omp_unset_lock (slock + i);
+#endif
+		}
+	}
+
+	free (dtr);
+}
+
+#pragma omp parallel for private(off, k,voptr,viptr) default(shared)
+	for (off = 0; off < nsph; ++off) {
+		voptr = vout + off * nterm;
+		viptr = buf + off * nterm;
+
+		/* Convert plane-wave translations into harmonics. */
 		ffsht (voptr, shtr);
-		spreflect (voptr, voptr, (spl + i)->spdesc->reflect, shtr->deg, shtr->nphi);
+		/* Add in the direct harmonic translations. */
+		for (k = 0; k < nterm; ++k) voptr[k] += viptr[k]; 
+		
+		/* Apply the reflection coefficient in SH space. */
+		spreflect (voptr, voptr, (spl + off)->spdesc->reflect, shtr->deg, shtr->nphi);
+
+		/* Take the reflections back to plane-waves. */
 		ifsht (voptr, shtr);
 	}
 	
 	/* Subtract the incoming field from the outgoing field. */
-#pragma omp parallel for private(i) default(shared)
-	for (i = 0; i < n; ++i) vout[i] = vin[i] - buf[i];
+#pragma omp parallel for private(off) default(shared)
+	for (off = 0; off < n; ++off) vout[off] = vin[off] - vout[off];
 
 	free (buf);
+
+#ifdef _OPENMP
+	/* Eliminate the OpenMP locks. */
+	for (off = 0; off < nsph; ++off) {
+		omp_destroy_lock (plock + off);
+		omp_destroy_lock (slock + off);
+	}
+
+	free (plock);
+#endif /* _OPENMP */
 
 	return nsph;
 }
