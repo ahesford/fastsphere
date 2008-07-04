@@ -87,7 +87,7 @@ trdesc* sphbldfmm (spscat *sph, int nsph, bgtype *bg, shdata *shtr) {
 		sdir[0] /= dist; sdir[1] /= dist; sdir[2] /= dist;
 
 		trunc = MAX((sph[i].spdesc)->deg, (sph[j].spdesc)->deg);
-		trans[k].trunc = 2 * trunc - 1;
+		trans[k].trunc = trunc;
 
 		/* Find the rotation angles of the translation direction. */
 		getangles (&(trans[k].theta), &(trans[k].chi), &(trans[k].phi), sdir);
@@ -96,7 +96,7 @@ trdesc* sphbldfmm (spscat *sph, int nsph, bgtype *bg, shdata *shtr) {
 		rad = MAX((sph[i].spdesc)->r, (sph[j].spdesc)->r);
 
 		/* If this is a dense translation, do nothing else. */
-		if (dist < 2 * rad) {
+		if (dist < M_SQRT2 * rad) {
 			trans[k].type = TRDENSE;
 			continue;
 		}
