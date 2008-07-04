@@ -96,7 +96,7 @@ trdesc* sphbldfmm (spscat *sph, int nsph, bgtype *bg, shdata *shtr) {
 		rad = MAX((sph[i].spdesc)->r, (sph[j].spdesc)->r);
 
 		/* If this is a dense translation, do nothing else. */
-		if (dist < 4 * rad) {
+		if (dist < 2 * rad) {
 			trans[k].type = TRDENSE;
 			continue;
 		}
