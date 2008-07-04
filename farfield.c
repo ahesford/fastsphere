@@ -50,18 +50,24 @@ void expnsh (complex double *out, complex double *in, shdata *shout, shdata *shi
 
 int farfield (complex double *vout, complex double *vin, spscat *slist,
 		int nsph, bgtype *bg, shdata *shout, shdata *shin) {
-	int i, j, k, l, ntin, ntout;
-	double s[3], sdc, dphi, sth, phi;
-	complex double *buf, *vp, sfact;
+	int ntin, ntout;
+	double dphi;
 
 	ntin = shin->ntheta * shin->nphi;
 	ntout = shout->ntheta * shout->nphi;
 	dphi = 2 * M_PI / MAX(shout->nphi, 1);
 
-	buf = malloc (ntout * sizeof(complex double));
 	memset (vout, 0, ntout * sizeof(complex double));
 
+#pragma omp parallel default(shared)
+{
+	int i, j, k, l;
+	double s[3], sdc, sth, phi;
+	complex double *buf, *vp, sfact;
 
+	buf = malloc (ntout * sizeof(complex double));
+
+#pragma omp for
 	for (i = 0; i < nsph; ++i) {
 		vp = vin + i * ntin;
 
@@ -82,11 +88,15 @@ int farfield (complex double *vout, complex double *vin, spscat *slist,
 				/* Compute the phase-shift factor. */
 				sdc = DVDOT(s, slist[i].cen);
 				sfact = cexp (-I * bg->k * sdc);
-
+				/* Augment the pattern, with synchronization. */
+#pragma omp critical(outrad)
 				vout[l] += sfact * buf[l];
 			}
 		}
 	}
+
+	free (buf);
+}
 
 	return ntout;
 }

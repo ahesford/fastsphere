@@ -2,10 +2,6 @@
 #include <complex.h>
 #include <string.h>
 
-#ifdef _OPENMP
-#include <omp.h>
-#endif /* _OPENMP */
-
 #include "fastsphere.h"
 #include "spreflect.h"
 #include "translator.h"
@@ -41,20 +37,6 @@ int scatmat (complex double *vout, complex double *vin, spscat *spl,
 		int nsph, trdesc *trans, shdata *shtr) {
 	int off, k, nterm, n, nsq;
 	complex double *buf, *oshc, *voptr, *viptr;
-#ifdef _OPENMP
-	/* This is the locking code, to orchestrate access to common output
-	 * buffers. */
-	omp_lock_t *plock, *slock;
-
-	/* One buffer for each sphere, for each of plane waves and harmonics. */
-	plock = malloc (2 * nsph * sizeof(omp_lock_t));
-	slock = plock + nsph;
-
-	for (off = 0; off < nsph; ++off) {
-		omp_init_lock (plock + off);
-		omp_init_lock (slock + off);
-	}
-#endif /* _OPENMP */
 
 	nterm = shtr->ntheta * shtr->nphi;
 	n = nterm * nsph;
@@ -93,17 +75,12 @@ int scatmat (complex double *vout, complex double *vin, spscat *spl,
 
 		if (trans[off].type == TRPLANE) {
 			/* Do the diagonal, plane-wave translation. */
-#ifdef _OPENMP
-			omp_set_lock (plock + i);
-#endif
 			voptr = vout + i * nterm;
 			viptr = vin + j * nterm;
-			
+			/* Copy to output, but only one thread at a time. */
+#pragma omp critical(outplane)
 			for (k = 0; k < nterm; ++k) 
 				voptr[k] += trans[off].trdata[k] * viptr[k];
-#ifdef _OPENMP
-			omp_unset_lock (plock + i);
-#endif
 		} else if (trans[off].type == TRDENSE) {
 			/* Do the dense, spherical-harmonic translation. */
 			memcpy (dtr, oshc + j * nterm, nterm * sizeof(complex double));
@@ -113,15 +90,11 @@ int scatmat (complex double *vout, complex double *vin, spscat *spl,
 			shtranslate (dtr, shtr->deg, shtr->nphi, trans[off].kr);
 			shrotate (dtr, shtr->deg, shtr->nphi, trans[off].theta,
 					trans[off].phi, trans[off].chi);
-#ifdef _OPENMP
-			omp_set_lock (slock + i);
-#endif
 			voptr = buf + i * nterm;
+			/* Copy to output, but only one thread at a time. */
+#pragma omp critical(outsphere)
 			for (k = 0; k < nterm; ++k)
 				voptr[k] += dtr[k];
-#ifdef _OPENMP
-			omp_unset_lock (slock + i);
-#endif
 		}
 	}
 
@@ -150,16 +123,6 @@ int scatmat (complex double *vout, complex double *vin, spscat *spl,
 	for (off = 0; off < n; ++off) vout[off] = vin[off] - vout[off];
 
 	free (buf);
-
-#ifdef _OPENMP
-	/* Eliminate the OpenMP locks. */
-	for (off = 0; off < nsph; ++off) {
-		omp_destroy_lock (plock + off);
-		omp_destroy_lock (slock + off);
-	}
-
-	free (plock);
-#endif /* _OPENMP */
 
 	return nsph;
 }
