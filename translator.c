@@ -2,6 +2,7 @@
 
 #include <math.h>
 #include <complex.h>
+#include <float.h>
 
 #include "spbessel.h"
 #include "translator.h"
@@ -37,7 +38,7 @@ complex double transang (int ord, complex double *hfn, double *lgwork,
  * plane, ntheta samples are chosen according to Legendre-Gauss quadrature,
  * plus one value at each pole. There are nphi equally-spaced phi samples. */
 int translator (trdesc *trans, int ntheta, int nphi, double *theta) {
-	double phi, dphi, *lgwork;
+	double phi, dphi, *lgwork, rng;
 	complex double *hfn, *tptr, cscale[4] = { 1.0, I, -1.0, -I };
 	int i, j, iscale;
 
@@ -52,8 +53,15 @@ int translator (trdesc *trans, int ntheta, int nphi, double *theta) {
 	/* The value (1i)^i wraps every fourth value of index i, so use the
 	 * cscale array to exploit that. */
 	/* iscale is 2 * i + 1, so fold that into the loop. */
-	for (i = 0, iscale = 1; i < trans->trunc; ++i, iscale += 2)
+	for (i = 0, iscale = 1; i < trans->trunc; ++i, iscale += 2) {
 		hfn[i] *= cscale[i % 4] * iscale;
+		rng = cabs (hfn[0] / hfn[i]) * 1e-6;
+		if (rng < DBL_EPSILON) {
+			printf ("Truncate: %d/%d\n", i, trans->trunc);
+			trans->trunc = i;
+			break;
+		}
+	}
 
 	/* Set the phi increment and the theta samples. */
 	dphi = 2 * M_PI / MAX(nphi, 1);

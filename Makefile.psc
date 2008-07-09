@@ -19,13 +19,13 @@ OBJS= config.o fastsphere.o fsht.o init.o scatmat.o farfield.o spbessel.o \
 TRTEST= trtest
 FASTSPHERE= fastsphere
 
-default: fastsphere trtest
-
 fastsphere: $(OBJS)
 	$(FF) $(LFLAGS) -o $(FASTSPHERE) $(OBJS) $(LIBS)
 
 trtest: $(TROBJS)
 	$(FF) $(LFLAGS) -o $(TRTEST) $(TROBJS) $(LIBS)
+
+all: fastsphere trtest
 
 clean:
 	$(RM) $(FASTSPHERE) $(OBJS) *.core core \

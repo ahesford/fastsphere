@@ -1,7 +1,7 @@
-FF?= gfortran42
-CC?= gcc
-AR?= ar
-RM?= rm -f
+FF= gfortran42
+CC= gcc
+AR= ar
+RM= rm -f
 
 OPTFLAGS= -fopenmp -O2 -march=opteron -mtune=opteron
 FFLAGS= $(OPTFLAGS)
@@ -18,13 +18,13 @@ OBJS= config.o fastsphere.o fsht.o init.o scatmat.o farfield.o spbessel.o \
 TRTEST= trtest
 FASTSPHERE= fastsphere
 
-default: fastsphere trtest
-
 fastsphere: $(OBJS)
 	$(FF) $(LFLAGS) -o $(FASTSPHERE) $(OBJS) $(LIBS)
 
 trtest: $(TROBJS)
 	$(FF) $(LFLAGS) -o $(TRTEST) $(TROBJS) $(LIBS)
+
+all: fastsphere trtest
 
 clean:
 	$(RM) $(FASTSPHERE) $(OBJS) *.core core \

@@ -59,7 +59,7 @@ trdesc* sphbldfmm (spscat *sph, int nsph, bgtype *bg, shdata *shtr) {
 	/* Set up the translators in parallel. */
 #pragma omp parallel private(i,j,k) default(shared)
 {
-	double dist, *sdir, trunc, rad;
+	double dist, *sdir, trunc;
 
 #pragma omp for
 	for (k = 1; k < nsq; ++k) {
@@ -87,19 +87,10 @@ trdesc* sphbldfmm (spscat *sph, int nsph, bgtype *bg, shdata *shtr) {
 		sdir[0] /= dist; sdir[1] /= dist; sdir[2] /= dist;
 
 		trunc = MAX((sph[i].spdesc)->deg, (sph[j].spdesc)->deg);
-		trans[k].trunc = trunc;
+		trans[k].trunc = 2 * trunc - 1;
 
 		/* Find the rotation angles of the translation direction. */
 		getangles (&(trans[k].theta), &(trans[k].chi), &(trans[k].phi), sdir);
-
-		/* Find the maximum radius for this translation. */
-		rad = MAX((sph[i].spdesc)->r, (sph[j].spdesc)->r);
-
-		/* If this is a dense translation, do nothing else. */
-		if (dist < M_SQRT2 * rad) {
-			trans[k].type = TRDENSE;
-			continue;
-		}
 
 		/* Set the translator type. */
 		trans[k].type = TRPLANE;
