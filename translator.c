@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include <stdlib.h>
 
 #include <math.h>
@@ -57,7 +58,7 @@ int translator (trdesc *trans, int ntheta, int nphi, double *theta) {
 		hfn[i] *= cscale[i % 4] * iscale;
 		rng = cabs (hfn[0] / hfn[i]) * 1e-6;
 		if (rng < DBL_EPSILON) {
-			printf ("Truncate: %d/%d\n", i, trans->trunc);
+			fprintf (stderr, "Premature truncation: %d/%d\n", i, trans->trunc);
 			trans->trunc = i;
 			break;
 		}
