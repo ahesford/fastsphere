@@ -59,7 +59,7 @@ trdesc* sphbldfmm (spscat *sph, int nsph, bgtype *bg, shdata *shtr) {
 	/* Set up the translators in parallel. */
 #pragma omp parallel private(i,j,k) default(shared)
 {
-	double dist, *sdir, trunc;
+	double dist, *sdir;
 
 #pragma omp for
 	for (k = 1; k < nsq; ++k) {
@@ -86,8 +86,7 @@ trdesc* sphbldfmm (spscat *sph, int nsph, bgtype *bg, shdata *shtr) {
 		/* Normalize translation direction. */
 		sdir[0] /= dist; sdir[1] /= dist; sdir[2] /= dist;
 
-		trunc = MAX((sph[i].spdesc)->deg, (sph[j].spdesc)->deg);
-		trans[k].trunc = 2 * trunc - 1;
+		trans[k].trunc = (sph[i].spdesc)->deg;
 
 		/* Find the rotation angles of the translation direction. */
 		getangles (&(trans[k].theta), &(trans[k].chi), &(trans[k].phi), sdir);
