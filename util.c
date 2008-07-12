@@ -50,7 +50,7 @@ int legpoly (int n, double x, double *v) {
 complex double buildkvec (double cr, double alpha) {
 	double kr, ki;
 
-	ki = -log(10) * alpha / 20;
+	ki = log(10) * alpha / 20;
 	kr = 2 * M_PI / cr;
 
 	return kr + I * ki;
