@@ -12,6 +12,12 @@
 #define ELT(n,m,lda) ((m) * (lda) + (n))
 #define IDX(n,m,lda) ((n) < 0 ? ELT(n,m+1,lda) : ELT(n,m,lda))
 
+#ifdef _FBSD
+complex double cexp (complex double);
+complex double csin (complex double);
+complex double ccos (complex double);
+#endif /* _FBSD */
+
 int exband (complex double, double);
 int legpoly (int, double, double *);
 

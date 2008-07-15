@@ -36,25 +36,14 @@ int buildrhs (complex double *rhs, spscat *spl, int nsph, shdata *shtr) {
 int scatmat (complex double *vout, complex double *vin, spscat *spl,
 		int nsph, trdesc *trans, shdata *shtr) {
 	int off, k, nterm, n, nsq;
-	complex double *buf, *oshc, *voptr, *viptr;
+	complex double *voptr, *viptr;
 
 	nterm = shtr->ntheta * shtr->nphi;
 	n = nterm * nsph;
 	nsq = nsph * nsph;
 
-	buf = calloc (2 * n, sizeof(complex double));
-	oshc = buf + n;
-
-	/* Copy the outgoing plane wave coefficients into a temporary vector. */
-	memcpy (oshc, vin, n * sizeof(complex double));
-
 	/* Zero out the output buffer. */
 	memset (vout, 0, n * sizeof(complex double));
-
-	/* Transform all outgoing plane waves into spherical harmonics. */
-#pragma omp parallel for private(off) default(shared)
-	for (off = 0; off < nsph; ++off)
-		ffsht (oshc + off * nterm, shtr);
 
 	/* Perform the translations. */
 #pragma omp parallel private(off,k,voptr,viptr) default(shared)
@@ -70,50 +59,30 @@ int scatmat (complex double *vout, complex double *vin, spscat *spl,
 		j = off / nsph;	/* Source sphere. */
 		i = off % nsph;	/* Destination sphere. */
 
-		/* Don't bother with self-translations. */
-		if (i == j) continue;
+		/* Don't bother with self-translations. Also ignore dense
+		 * translations for the moment. */
+		if (i == j || trans[off].type != TRPLANE) continue;
 
-		if (trans[off].type == TRPLANE) {
-			/* Do the diagonal, plane-wave translation. */
-			voptr = vout + i * nterm;
-			viptr = vin + j * nterm;
-			/* Copy to output, but only one thread at a time. */
+		/* Do the diagonal, plane-wave translation. */
+		voptr = vout + i * nterm;
+		viptr = vin + j * nterm;
+		/* Copy to output, but only one thread at a time. */
 #pragma omp critical(outplane)
-			for (k = 0; k < nterm; ++k) 
-				voptr[k] += trans[off].trdata[k] * viptr[k];
-		} else if (trans[off].type == TRDENSE) {
-			/* Do the dense, spherical-harmonic translation. */
-			memcpy (dtr, oshc + j * nterm, nterm * sizeof(complex double));
-
-			shrotate (dtr, shtr->deg, shtr->nphi, trans[off].theta,
-					trans[off].chi, trans[off].phi);
-			shtranslate (dtr, shtr->deg, shtr->nphi, trans[off].kr);
-			shrotate (dtr, shtr->deg, shtr->nphi, trans[off].theta,
-					trans[off].phi, trans[off].chi);
-			voptr = buf + i * nterm;
-			/* Copy to output, but only one thread at a time. */
-#pragma omp critical(outsphere)
-			for (k = 0; k < nterm; ++k)
-				voptr[k] += dtr[k];
-		}
+		for (k = 0; k < nterm; ++k) 
+			voptr[k] += trans[off].trdata[k] * viptr[k];
 	}
 
 	free (dtr);
 }
 
-#pragma omp parallel for private(off, k,voptr,viptr) default(shared)
+#pragma omp parallel for private(off, k,voptr) default(shared)
 	for (off = 0; off < nsph; ++off) {
 		voptr = vout + off * nterm;
-		viptr = buf + off * nterm;
 
 		/* Convert plane-wave translations into harmonics. */
 		ffsht (voptr, shtr);
-		/* Add in the direct harmonic translations. */
-		for (k = 0; k < nterm; ++k) voptr[k] += viptr[k]; 
-		
 		/* Apply the reflection coefficient in SH space. */
 		spreflect (voptr, voptr, (spl + off)->spdesc->reflect, shtr->deg, shtr->nphi);
-
 		/* Take the reflections back to plane-waves. */
 		ifsht (voptr, shtr);
 	}
@@ -121,8 +90,6 @@ int scatmat (complex double *vout, complex double *vin, spscat *spl,
 	/* Subtract the incoming field from the outgoing field. */
 #pragma omp parallel for private(off) default(shared)
 	for (off = 0; off < n; ++off) vout[off] = vin[off] - vout[off];
-
-	free (buf);
 
 	return nsph;
 }

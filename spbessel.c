@@ -5,6 +5,7 @@
 #include <math.h>
 
 #include "spbessel.h"
+#include "util.h"
 
 complex double dspbesj0 (complex double);
 complex double dspbesh0 (complex double);

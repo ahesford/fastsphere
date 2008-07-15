@@ -5,9 +5,10 @@
 
 #include "util.h"
 #include "shtranslate.h"
+#include "spbessel.h"
 
 int shtransrfl (complex double *trans, int n, int m) {
-	int l, llim, sgnm, sgnl, nmax;
+	int l, llim, sgnm, sgnl;
 
 	llim = n - m;
 	sgnm = 1 - 2 * (m % 2);
@@ -22,7 +23,7 @@ int shtransrfl (complex double *trans, int n, int m) {
 }
 
 int shtransfill (complex double *trans, int deg, int m) {
-	int nlim, i, l, n, nmax, sgnn, sgnl;
+	int nlim, l, n, nmax, sgnn, sgnl;
 	double anm, alm, alm1, anm1;
 
 	/* The maximum degree we will be computing. */

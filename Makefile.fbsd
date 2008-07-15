@@ -3,7 +3,7 @@ CC= gcc
 AR= ar
 RM= rm -f
 
-OPTFLAGS= -fopenmp -O2 -march=opteron -mtune=opteron
+OPTFLAGS= -Wall -D_FBSD -fopenmp -O2 -march=opteron -mtune=opteron
 FFLAGS= $(OPTFLAGS)
 CFLAGS= $(OPTFLAGS) -I/usr/local/include
 
