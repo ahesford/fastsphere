@@ -94,8 +94,6 @@ int fartonear (complex double *vout, complex double *vin, spscat *slist,
 	ntout = shout->ntheta * shout->nphi;
 	dphi = 2 * M_PI / MAX(shout->nphi, 1);
 
-	memset (vout, 0, ntout * nsph * sizeof(complex double));
-
 	buf = malloc (ntout * sizeof(complex double));
 	ffsht (vin, shin);	/* Incoming plane waves to SH coefficients. */
 	/* Copy the low-degree coefficients for anterpolation. */

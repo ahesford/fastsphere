@@ -14,7 +14,8 @@ typedef struct {
 
 enum GMRES_INFO { GEX = 0, GMV, GLP, GRP, GDP };
 
-int buildrhs (complex double *, spscat *, int, shdata *);
+int sprflpw (complex double *, spscat *, int, shdata *);
+int sptrans (complex double *, complex double *, int, trdesc *, shdata *);
 int scatmat (complex double *, complex double *, spscat *, int, trdesc *, shdata *);
 int itsolve (complex double *, complex double *,
 		spscat *, int, trdesc *, shdata *, itconf *);

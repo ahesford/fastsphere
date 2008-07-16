@@ -133,7 +133,7 @@ int main (int argc, char **argv) {
 
 	/* Convert the incoming incident field to the reflected incident
 	 * field, which is the RHS for this problem. */
-	buildrhs (rhs, slist, nspheres, &shtr);
+	sprflpw (rhs, slist, nspheres, &shtr);
 	fprintf (stderr, "Built RHS vector\n");
 
 	if (rhsname) {
