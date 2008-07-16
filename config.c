@@ -48,7 +48,7 @@ int nextline (FILE *input, char *buf, int maxlen) {
 	return 0;
 }
 
-int readcfg (FILE *cfgin, int *nspheres, int *nsptype, sptype **spt,
+int readcfg (FILE *cfgin, int *nspheres, int *nsptype, sptype **spt, sptype *encl,
 		spscat **spl, bgtype *bg, exctparm *exct, itconf *itc) {
 	int i, tp;
 	char buf[BUFLEN];
@@ -83,6 +83,13 @@ int readcfg (FILE *cfgin, int *nspheres, int *nsptype, sptype **spt,
 
 	/* The number of iterations, restart and solver tolerance. */
 	if (sscanf (buf, "%d %d %lf", &(itc->iter), &(itc->restart), &(itc->eps)) != 3)
+		return 0;
+
+	if (!nextline (cfgin, buf, BUFLEN)) return 0;
+
+	/* The enclosing sphere, if there is any. */
+	if (sscanf (buf, "%lf %lf %lf %lf", &(encl->r), &(encl->c),
+				&(encl->alpha), &(encl->rho)) != 4 && encl->r > 0)
 		return 0;
 
 	if (!nextline (cfgin, buf, BUFLEN)) return 0;

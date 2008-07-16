@@ -9,13 +9,13 @@
 #include "util.h"
 #include "init.h"
 
-int sphinit (sptype *spt, int nspt, bgtype *bg, shdata *shtr) {
+int sphinit (sptype *spt, int nspt, complex double bgk, double bgrho, shdata *shtr) {
 	int i, deg = 0, nang;
 	sptype *sptr;
 
 	/* Find the maximum spherical harmonic degree required. */
 	for (i = 0, sptr = spt; i < nspt; ++i, ++sptr) {
-		sptr->deg = exband (bg->k * sptr->r, 6);
+		sptr->deg = exband (bgk * sptr->r, 6);
 		deg = MAX(deg, sptr->deg);
 	}
 
@@ -33,11 +33,33 @@ int sphinit (sptype *spt, int nspt, bgtype *bg, shdata *shtr) {
 		sptr->reflect = calloc (deg, sizeof(complex double));
 		/* The background relative density is unity, and the sphere
 		 * density is specified relative to the background. */
-		spbldrc (sptr->reflect, bg->k, sptr->k,
-				1.0, sptr->rho, sptr->r, sptr->deg);
+		spbldrc (sptr->reflect, bgk, sptr->k,
+				bgrho, sptr->rho, sptr->r, sptr->deg);
 	}
 
 	return nspt;
+}
+
+int exbdinit (sptype *sbd, complex double bgk, double bgrho, shdata *shtr) {
+	int nang;
+
+	/* The spherical harmonic degree for the background sphere. */
+	sbd->deg = exband (bgk * sbd->r, 6);
+	nang = 2 * sbd->deg - 1; /* The number of angular samples (per dimension). */
+
+	/* Initialize the SH transform data. */
+	fshtinit (shtr, sbd->deg, nang, 2 * nang);
+
+	/* Allocate space for reflection and transmission coefficients. */
+	sbd->reflect = calloc (4 * sbd->deg, sizeof(complex double));
+	sbd->transmit = sbd->reflect + 2 * sbd->deg;
+
+	/* Compute the reflection and transmission coefficients. */
+	exbcrfltr (sbd->reflect, sbd->reflect + sbd->deg, sbd->transmit,
+			sbd->transmit + sbd->deg, bgk, sbd->k,  bgrho,
+			sbd->rho, sbd->r, sbd->deg);
+
+	return 1;
 }
 
 void clrspheres (sptype *spt, int nspt) {
@@ -47,7 +69,7 @@ void clrspheres (sptype *spt, int nspt) {
 	for (i = 0; i < nspt; ++i) free (spt[i].reflect);
 }
 
-trdesc* sphbldfmm (spscat *sph, int nsph, bgtype *bg, shdata *shtr) {
+trdesc* sphbldfmm (spscat *sph, int nsph, complex double bgk, shdata *shtr) {
 	int i, j, k, nsq, nterm;
 	trdesc *trans;
 
@@ -81,7 +103,7 @@ trdesc* sphbldfmm (spscat *sph, int nsph, bgtype *bg, shdata *shtr) {
 
 		/* Translation distance. */
 		dist = sqrt(DVDOT(sdir,sdir));
-		trans[k].kr = bg->k * dist;
+		trans[k].kr = bgk * dist;
 
 		/* Normalize translation direction. */
 		sdir[0] /= dist; sdir[1] /= dist; sdir[2] /= dist;

@@ -53,7 +53,7 @@ int writebvec (FILE *out, complex double *vec, int n, int m) {
 
 int main (int argc, char **argv) {
 	int nspheres, nsptype, n, i, nterm, trunc;
-	sptype *sparms;
+	sptype *sparms, bgspt;
 	spscat *slist;
 	bgtype bg;
 	exctparm exct;
@@ -84,14 +84,14 @@ int main (int argc, char **argv) {
 	if (!inname) fptr = stdin;
 	else fptr = critopen (inname, "r");
 
-	readcfg (fptr, &nspheres, &nsptype, &sparms, &slist, &bg, &exct, &itc);
+	readcfg (fptr, &nspheres, &nsptype, &sparms, &bgspt, &slist, &bg, &exct, &itc);
 	fprintf (stderr, "Parsed configuration for %d spheres at %g MHz\n", nspheres, exct.f / 1e6);
-	sphinit (sparms, nsptype, &bg, &shtr);
+	sphinit (sparms, nsptype, bg.k, 1.0, &shtr);
 	fprintf (stderr, "Initialized spherical harmonic data for degree %d\n", shtr.deg);
-	trans = sphbldfmm (slist, nspheres, &bg, &shtr);
+	trans = sphbldfmm (slist, nspheres, bg.k, &shtr);
 	fprintf (stderr, "Built FMM translators for all spheres\n");
 
-	n = rootorder (slist, nspheres, &bg);
+	n = rootorder (slist, nspheres, bg.k);
 	n = 2 * n - 1; /* The number of angular samples (in each direction). */
 	fshtinit (&shroot, shtr.deg, n, 2 * n);
 	fprintf (stderr, "Built spherical harmonic data for far-field\n");
@@ -150,7 +150,7 @@ int main (int argc, char **argv) {
 	/* Compute the far-field radiation pattern of the object. */
 	n = shroot.ntheta * shroot.nphi;
 	radpat = malloc (n * sizeof(complex double));
-	farfield (radpat, sol, slist, nspheres, &bg, &shroot, &shtr);
+	neartofar (radpat, sol, slist, nspheres, bg.k, &shroot, &shtr);
 
 	if (!outname) fptr = stdout;
 	else fptr = critopen (outname, "w");

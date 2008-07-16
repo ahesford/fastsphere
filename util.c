@@ -1,3 +1,5 @@
+#include <string.h>
+
 #include <math.h>
 #include <complex.h>
 #include <float.h>
@@ -54,4 +56,29 @@ complex double buildkvec (double cr, double alpha) {
 	kr = 2 * M_PI / cr;
 
 	return kr + I * ki;
+}
+
+/* Copy the spherical harmonic representation from one location to another. */
+int copysh (complex double *out, int degout, int ldo,
+		complex double *in, int degin, int ldi) {
+	int i, j, offo, offi;
+
+	/* Blank the output buffer. */
+	memset (out, 0, degout * ldo * sizeof(complex double));
+
+	/* Copy the spherical harmonic coefficients into the right place. */
+	for (i = 0; i < degin; ++i) {
+		offo = i * ldo;
+		offi = i * ldi;
+		/* Copy the zero-order coefficients. */
+		out[offo] = in[offi];
+
+		/* Copy the other coefficients. */
+		for (j = 1; j <= i; ++j) {
+			out[offo + j] = in[offi + j];
+			out[offo + ldo - j] = in[offi + ldi - j];
+		}
+	}
+
+	return degin;
 }
