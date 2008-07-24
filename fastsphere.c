@@ -89,7 +89,10 @@ int main (int argc, char **argv) {
 	if (!inname) fptr = stdin;
 	else fptr = critopen (inname, "r");
 
+#ifdef _OPENMP
+	/* Only initialize FFTW threads if OpenMP is used. */
 	fftw_init_threads ();
+#endif
 
 	readcfg (fptr, &nspheres, &nsptype, &sparms, &bgspt, &slist, &bg, &exct, &itc);
 	fprintf (stderr, "Parsed configuration for %d spheres at %g MHz\n", nspheres, exct.f / 1e6);
@@ -104,7 +107,8 @@ int main (int argc, char **argv) {
 	/* Multithreaded FFT for the root-level transform, since that is
 	 * a serial point in the code. All other FFTs are serialized, because
 	 * parallelization occurs at the sphere level. */
-	fftw_plan_with_nthreads (omp_get_num_threads());
+	fftw_plan_with_nthreads (omp_get_num_threads ());
+	fprintf (stderr, "Using %d threads for root-level FFT\n", omp_get_num_threads());
 #endif /* _OPENMP */
 
 	/* Set up far-field (or enclosing sphere) transform data. */
@@ -117,10 +121,6 @@ int main (int argc, char **argv) {
 		esbdinit (&bgspt, bg.k, 1.0, &shroot);
 		fprintf (stderr, "Built data for enclosing sphere\n");
 	}
-#ifdef _OPENMP
-	/* Restore the single-thread FFT. */
-	fftw_plan_with_nthreads (1);
-#endif /* _OPENMP */
 
 	nterm = shtr.ntheta * shtr.nphi;
 	n = nspheres * nterm;
@@ -213,30 +213,15 @@ int main (int argc, char **argv) {
 
 		/* Compute the far-field pattern of the internal spheres. */
 		neartofar (radpat, sol, slist, nspheres, bgspt.k, &shroot, &shtr);
+		ffsht (radpat, &shroot);
 
-		/* Transmit this field through the outer boundary, and reflect
-		 * the standing wave pattern outside. */
-#pragma omp parallel private(i) default(shared)
-{
-		int j, off, npj;
+		/* Transmit this field through the outer boundary. */
+		spreflect (radpat, radpat, bgspt.transmit + shroot.deg, shroot.deg, shroot.nphi, 0);
 
-#pragma omp for
-		for (i = 0; i < shroot.deg; ++i) {
-			off = i * shroot.nphi;
+		/* Now add in the reflected standing-wave coefficients. */
+		spreflect (radpat, sptr, bgspt.reflect + shroot.deg, shroot.deg, shroot.nphi, 1);
 
-			radpat[off] *= bgspt.transmit[shroot.deg + i];
-			radpat[off] += sptr[off] * bgspt.reflect[shroot.deg + i];
-
-			for (j = 1; j <= i; ++j) {
-				npj = shroot.nphi - j;
-				radpat[off + j] *= bgspt.transmit[shroot.deg + i];
-				radpat[off + j] += sol[off + j] * bgspt.reflect[shroot.deg + i];
-
-				radpat[off + npj] *= bgspt.transmit[shroot.deg + i];
-				radpat[off + npj] += sol[off + npj] * bgspt.reflect[shroot.deg + i];
-			}
-		}
-}
+		ifsht (radpat, &shroot);
 	}
 
 	if (!outname) fptr = stdout;
@@ -253,7 +238,10 @@ int main (int argc, char **argv) {
 	fshtfree (&shroot);
 	fshtfree (&shtr);
 
+#ifdef _OPENMP
 	fftw_cleanup_threads ();
+#endif /* _OPENMP */
+
 	fftw_cleanup ();
 
 	return EXIT_SUCCESS;

@@ -28,7 +28,7 @@ int sprflpw (complex double *rhs, spscat *spl, int nsph, shdata *shtr) {
 
 		/* Multiply by the reflection coefficient in SH space. */
 		ffsht (vptr, shtr);
-		spreflect (vptr, vptr, (spl + i)->spdesc->reflect, shtr->deg, shtr->nphi);
+		spreflect (vptr, vptr, (spl + i)->spdesc->reflect, shtr->deg, shtr->nphi, 0);
 		ifsht (vptr, shtr);
 	}
 
@@ -107,27 +107,10 @@ int scatmat (complex double *vout, complex double *vin, spscat *spl, int nsph,
 	ffsht (voptr, bgtr); /* Convert far-field pattern to SH. */
 
 	/* Compute the reflection of the far-field pattern. */
-	spreflect (voptr, voptr, bgspt->reflect, bgtr->deg, bgtr->nphi);
+	spreflect (voptr, voptr, bgspt->reflect, bgtr->deg, bgtr->nphi, 0);
 
 	/* Add in the standing wave coefficients, transmitted. */
-#pragma omp parallel private(i) default(shared)
-{
-	int j, off, npj;
-
-#pragma omp for
-	for (i = 0; i < bgtr->deg; ++i) {
-		off = i * bgtr->nphi;
-
-		/* Handle the zero-order case. */
-		voptr[off] += viptr[off] * bgspt->transmit[i];
-
-		for (j = 1; j <= i; ++j) {
-			npj = bgtr->nphi - j;
-			voptr[off + j] += viptr[off + j] * bgspt->transmit[i];
-			voptr[off + npj] += viptr[off + npj] * bgspt->transmit[i];
-		}
-	}
-}
+	spreflect (voptr, viptr, bgspt->transmit, bgtr->deg, bgtr->nphi, 1);
 
 	return nsph;
 }

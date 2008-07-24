@@ -55,41 +55,36 @@ int spbldrc (complex double *vals, complex double k0, complex double k1,
 /* This should be able to handle in-place reflection, where inc and scat are
  * pointers to the same data. */
 int spreflect (complex double *scat, complex double *inc,
-		complex double *spr, int ord, int nphi) {
+		complex double *spr, int ord, int nphi, int aug) {
 	int i, j, off, npj;
 
-	for (i = 0; i < ord; ++i) {
-		off = i * nphi;
-
-		/* Handle the zero-order case. */
-		scat[off] = inc[off] * spr[i];
-
-		/* Handle the nonzero orders. */
-		for (j = 1; j <= i; ++j) {
-			npj = nphi - j;
-			scat[off + j] = inc[off + j] * spr[i];
-			scat[off + npj] = inc[off + npj] * spr[i];
+	if (!aug) { 
+		for (i = 0; i < ord; ++i) {
+			off = i * nphi;
+			
+			/* Handle the zero-order case. */
+			scat[off] = inc[off] * spr[i]; 
+			
+			/* Handle the nonzero orders. */
+			for (j = 1; j <= i; ++j) {
+				npj = nphi - j;
+				scat[off + j] = inc[off + j] * spr[i];
+				scat[off + npj] = inc[off + npj] * spr[i];
+			}
 		}
-	}
-
-	return ord;
-}
-
-int spinvrfl (complex double *scat, complex double *inc,
-		complex double *spr, int ord, int nphi) {
-	int i, j, off, npj;
-
-	for (i = 0; i < ord; ++i) {
-		off = i * nphi;
-
-		/* Handle the zero-order case. */
-		scat[off] = inc[off] / spr[i];
-
-		/* Handle the nonzero orders. */
-		for (j = 1; j <= i; ++j) {
-			npj = nphi - j;
-			scat[off + j] = inc[off + j] / spr[i];
-			scat[off + npj] = inc[off + npj] / spr[i];
+	} else {
+		for (i = 0; i < ord; ++i) {
+			off = i * nphi;
+			
+			/* Handle the zero-order case. */
+			scat[off] += inc[off] * spr[i]; 
+			
+			/* Handle the nonzero orders. */
+			for (j = 1; j <= i; ++j) {
+				npj = nphi - j;
+				scat[off + j] += inc[off + j] * spr[i];
+				scat[off + npj] += inc[off + npj] * spr[i];
+			}
 		}
 	}
 
