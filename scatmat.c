@@ -86,8 +86,7 @@ int scatmat (complex double *vout, complex double *vin, spscat *spl, int nsph,
 	viptr = vin + n;
 
 	/* Initialize the output bufer. */
-	if (bgspt->r < 0) memset (vout, 0, n * sizeof(complex double));
-	else fartonear (vout, viptr, spl, nsph, bgspt->k, shtr, bgtr);
+	fartonear (vout, viptr, spl, nsph, bgspt->k, shtr, bgtr);
 
 	/* Compute the spherical translations. */
 	sptrans (vout, vin, nsph, trans, shtr);
@@ -98,9 +97,6 @@ int scatmat (complex double *vout, complex double *vin, spscat *spl, int nsph,
 	/* Subtract the incoming field from the outgoing field. */
 #pragma omp parallel for private(i) default(shared)
 	for (i = 0; i < n; ++i) vout[i] = vin[i] - vout[i];
-
-	/* If there is no enclosing sphere, go no further. */
-	if (bgspt->r < 0) return nsph;
 
 	/* Compute the far-field pattern of the internal spheres. */
 	neartofar (voptr, vin, spl, nsph, bgspt->k, bgtr, shtr);
@@ -122,8 +118,7 @@ int itsolve (complex double *sol, complex double *rhs, spscat *spl, int nsph,
 	complex double *zwork, *tx, *ty, *tz, zone = 1.0, zzero = 0.0;
 
 	nterm = shtr->ntheta * shtr->nphi;
-	n = nterm * nsph;
-	if (bgspt->r > 0) n += bgtr->ntheta * bgtr->nphi;
+	n = nterm * nsph + bgtr->ntheta * bgtr->nphi;
 
 	lwork = itc->restart * itc->restart + itc->restart * (n + 5) + 5 * n + 2;
 	zwork = calloc (lwork, sizeof(complex double));

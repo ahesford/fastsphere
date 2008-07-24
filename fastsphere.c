@@ -57,15 +57,17 @@ int writebvec (FILE *out, complex double *vec, int n, int m) {
 }
 
 int main (int argc, char **argv) {
-	int nspheres, nsptype, n, i, nterm, trunc;
+	int nspheres, nsptype, n, nterm;
 	sptype *sparms, bgspt;
 	spscat *slist;
 	bgtype bg;
 	exctparm exct;
 	shdata shtr, shroot;
 	itconf itc;
-	trdesc *trans;
-	complex double *rhs, *sol, *radpat;
+	trdesc *trans, trinc;
+	double rsrc;
+
+	complex double *rhs, *sol, *radpat, *sptr;
 
 	FILE *fptr = NULL;
 	char *inname = NULL, *outname = NULL, *rhsname = NULL, ch;
@@ -96,102 +98,57 @@ int main (int argc, char **argv) {
 
 	readcfg (fptr, &nspheres, &nsptype, &sparms, &bgspt, &slist, &bg, &exct, &itc);
 	fprintf (stderr, "Parsed configuration for %d spheres at %g MHz\n", nspheres, exct.f / 1e6);
-	if (bgspt.r < 0) sphinit (sparms, nsptype, bg.k, 1.0, &shtr);
-	else sphinit (sparms, nsptype, bgspt.k, bgspt.rho, &shtr);
+	sphinit (sparms, nsptype, bgspt.k, bgspt.rho, &shtr);
 	fprintf (stderr, "Initialized spherical harmonic data for degree %d\n", shtr.deg);
-	if (bgspt.r < 0) trans = sphbldfmm (slist, nspheres, bg.k, &shtr);
-	else trans = sphbldfmm (slist, nspheres, bgspt.k, &shtr);
+	trans = sphbldfmm (slist, nspheres, bgspt.k, &shtr);
 	fprintf (stderr, "Built FMM translators for all spheres\n");
 
 #ifdef _OPENMP
 	/* Multithreaded FFT for the root-level transform, since that is
 	 * a serial point in the code. All other FFTs are serialized, because
 	 * parallelization occurs at the sphere level. */
-	fftw_plan_with_nthreads (omp_get_num_threads ());
-	fprintf (stderr, "Using %d threads for root-level FFT\n", omp_get_num_threads());
+#pragma omp parallel default(shared)
+	if (omp_get_thread_num () == 0) n = omp_get_num_threads ();
+
+	fftw_plan_with_nthreads (n);
+	fprintf (stderr, "Using %d threads for root-level FFT\n", n);
 #endif /* _OPENMP */
 
 	/* Set up far-field (or enclosing sphere) transform data. */
-	if (bgspt.r < 0) {
-		n = rootorder (slist, nspheres, bg.k);
-		n = 2 * n - 1; /* The number of angular samples (in each direction). */
-		fshtinit (&shroot, shtr.deg, n, 2 * n);
-		fprintf (stderr, "Built spherical harmonic data for far-field\n");
-	} else {
-		esbdinit (&bgspt, bg.k, 1.0, &shroot);
-		fprintf (stderr, "Built data for enclosing sphere\n");
-	}
+	esbdinit (&bgspt, bg.k, 1.0, &shroot);
+	fprintf (stderr, "Built data for enclosing sphere\n");
 
 	nterm = shtr.ntheta * shtr.nphi;
-	n = nspheres * nterm;
-	if (bgspt.r >= 0) n += shroot.ntheta * shroot.nphi;
+	n = nspheres * nterm + shroot.ntheta * shroot.nphi;
 	rhs = calloc (2 * n, sizeof(complex double));
 	sol = rhs + n;
 
-	if (bgspt.r < 0) {
-		/* Build a translator from the source location to each sphere.
-		 * This is the incoming incident field for each sphere. */
-		trunc = 2 * shtr.deg - 1; 
+	trinc.trunc = 2 * shroot.deg - 1;
+	trinc.type = TRPLANE;
 
-#pragma omp parallel private(i) default(shared)
-{
-		/* These variables are private. */
-		double rsrc;
-		trdesc trinc;
-		trinc.trunc = trunc;
-		trinc.type = TRPLANE;
+	trinc.sdir[0] = -exct.cen[0];
+	trinc.sdir[0] = -exct.cen[0];
+	trinc.sdir[0] = -exct.cen[0];
 
-		for (i = 0; i < nspheres; ++i) {
-			trinc.sdir[0] = slist[i].cen[0] - exct.cen[0];
-			trinc.sdir[1] = slist[i].cen[1] - exct.cen[1];
-			trinc.sdir[2] = slist[i].cen[2] - exct.cen[2];
-			
-			rsrc = sqrt (DVDOT(trinc.sdir,trinc.sdir));
-			trinc.sdir[0] /= rsrc;
-			trinc.sdir[1] /= rsrc;
-			trinc.sdir[2] /= rsrc;
-			
-			trinc.kr = bg.k * rsrc;
-			trinc.trdata = rhs + i * nterm; 
-			
-			translator (&trinc, shtr.ntheta, shtr.nphi, shtr.theta);
-		}
-}
+	rsrc = sqrt (DVDOT(trinc.sdir,trinc.sdir));
+	trinc.sdir[0] /= rsrc;
+	trinc.sdir[1] /= rsrc;
+	trinc.sdir[2] /= rsrc;
 
-		/* Convert the incoming incident field to the reflected incident
-		 * field, which is the RHS for this problem. */
-		sprflpw (rhs, slist, nspheres, &shtr);
-	} else {
-		double rsrc;
-		trdesc trinc;
+	trinc.kr = bg.k * rsrc;
+	trinc.trdata = rhs + nspheres * nterm;
 
-		trinc.trunc = 2 * shroot.deg - 1;
-		trinc.type = TRPLANE;
+	/* The plane-wave incident field. */
+	translator (&trinc, shroot.ntheta, shroot.nphi, shroot.theta);
 
-		trinc.sdir[0] = -exct.cen[0];
-		trinc.sdir[0] = -exct.cen[0];
-		trinc.sdir[0] = -exct.cen[0];
-
-		rsrc = sqrt (DVDOT(trinc.sdir,trinc.sdir));
-		trinc.sdir[0] /= rsrc;
-		trinc.sdir[1] /= rsrc;
-		trinc.sdir[2] /= rsrc;
-
-		trinc.kr = bg.k * rsrc;
-		trinc.trdata = rhs + nspheres * nterm;
-
-		/* The plane-wave incident field. */
-		translator (&trinc, shroot.ntheta, shroot.nphi, shroot.theta);
-
-		/* Take the incident field to SH coefficients. */
-		ffsht (trinc.trdata, &shroot);
-	}
+	/* Take the incident field to SH coefficients. */
+	ffsht (trinc.trdata, &shroot);
 
 	fprintf (stderr, "Built RHS vector\n");
 
 	if (rhsname) {
 		fptr = critopen (rhsname, "w");
-		writebvec (fptr, rhs, nterm, nspheres);
+		writebvec (fptr, rhs, n, 1);
 		fclose (fptr);
 	}
 
@@ -201,28 +158,21 @@ int main (int argc, char **argv) {
 	fflush (stdout);
 
 	/* Compute the far-field radiation pattern of the object. */
-	if (bgspt.r < 0) {
-		n = shroot.ntheta * shroot.nphi;
-		radpat = malloc (n * sizeof(complex double));
-		neartofar (radpat, sol, slist, nspheres, bg.k, &shroot, &shtr);
-	} else {
-		complex double *sptr;
-		n = nspheres * nterm;
-		radpat = rhs + n;
-		sptr = sol + n;
+	n = nspheres * nterm;
+	radpat = rhs + n;
+	sptr = sol + n;
 
-		/* Compute the far-field pattern of the internal spheres. */
-		neartofar (radpat, sol, slist, nspheres, bgspt.k, &shroot, &shtr);
-		ffsht (radpat, &shroot);
+	/* Compute the far-field pattern of the internal spheres. */
+	neartofar (radpat, sol, slist, nspheres, bgspt.k, &shroot, &shtr);
+	ffsht (radpat, &shroot);
 
-		/* Transmit this field through the outer boundary. */
-		spreflect (radpat, radpat, bgspt.transmit + shroot.deg, shroot.deg, shroot.nphi, 0);
+	/* Transmit this field through the outer boundary. */
+	spreflect (radpat, radpat, bgspt.transmit + shroot.deg, shroot.deg, shroot.nphi, 0);
 
-		/* Now add in the reflected standing-wave coefficients. */
-		spreflect (radpat, sptr, bgspt.reflect + shroot.deg, shroot.deg, shroot.nphi, 1);
+	/* Now add in the reflected standing-wave coefficients. */
+	spreflect (radpat, sptr, bgspt.reflect + shroot.deg, shroot.deg, shroot.nphi, 1);
 
-		ifsht (radpat, &shroot);
-	}
+	ifsht (radpat, &shroot);
 
 	if (!outname) fptr = stdout;
 	else fptr = critopen (outname, "w");
@@ -234,7 +184,6 @@ int main (int argc, char **argv) {
 	sphclrfmm (trans, nspheres * nspheres);
 	free (trans);
 	free (rhs);
-	if (bgspt.r < 0) free (radpat);
 	fshtfree (&shroot);
 	fshtfree (&shtr);
 
