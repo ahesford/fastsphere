@@ -92,6 +92,11 @@ int readcfg (FILE *cfgin, int *nspheres, int *nsptype, sptype **spt, sptype *enc
 				&(encl->alpha), &(encl->rho)) != 4 && encl->r > 0)
 		return 0;
 
+	encl->r *= exct->f / bg->cabs; /* Radius to wavelengths. */
+	encl->c /= bg->cabs; /* Sound speed to relative sound speed. */
+	encl->alpha *= 1e-4 * bg->cabs; /* Attenuation to dB per wavelength. */
+	encl->rho /= bg->rho0; /* Density to relative density. */
+
 	if (!nextline (cfgin, buf, BUFLEN)) return 0;
 
 	/* The number of spheres, and the number of unique sphere types. */
@@ -145,6 +150,9 @@ int readcfg (FILE *cfgin, int *nspheres, int *nsptype, sptype **spt, sptype *enc
 	/* Build the wave numbers for each type of sphere. */
 	for (i = 0, stptr = *spt; i < *nsptype; ++i, ++stptr)
 		stptr->k = buildkvec (stptr->c, stptr->alpha);
+
+	/* Build the wave number for the enclosing sphere. */
+	encl->k = buildkvec (encl->c, encl->alpha);
 
 	return *nspheres;
 }

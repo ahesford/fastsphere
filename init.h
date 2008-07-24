@@ -8,7 +8,7 @@
 #include "translator.h"
 
 int sphinit (sptype *, int, complex double, double, shdata *);
-int exbdinit (sptype *, complex double, double, shdata *);
+int esbdinit (sptype *, complex double, double, shdata *);
 void clrspheres (sptype *, int);
 
 trdesc* sphbldfmm (spscat *, int, complex double, shdata *);

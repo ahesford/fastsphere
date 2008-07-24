@@ -40,7 +40,7 @@ int sphinit (sptype *spt, int nspt, complex double bgk, double bgrho, shdata *sh
 	return nspt;
 }
 
-int exbdinit (sptype *sbd, complex double bgk, double bgrho, shdata *shtr) {
+int esbdinit (sptype *sbd, complex double bgk, double bgrho, shdata *shtr) {
 	int nang;
 
 	/* The spherical harmonic degree for the background sphere. */
@@ -55,9 +55,8 @@ int exbdinit (sptype *sbd, complex double bgk, double bgrho, shdata *shtr) {
 	sbd->transmit = sbd->reflect + 2 * sbd->deg;
 
 	/* Compute the reflection and transmission coefficients. */
-	exbcrfltr (sbd->reflect, sbd->reflect + sbd->deg, sbd->transmit,
-			sbd->transmit + sbd->deg, bgk, sbd->k,  bgrho,
-			sbd->rho, sbd->r, sbd->deg);
+	esbldrc (sbd->reflect, sbd->transmit, bgk, sbd->k,
+			bgrho, sbd->rho, sbd->r, sbd->deg);
 
 	return 1;
 }

@@ -8,7 +8,7 @@ FFLAGS= $(OPTFLAGS)
 CFLAGS= $(OPTFLAGS) -I/opt/local/include
 
 LFLAGS= $(OPTFLAGS) -L/opt/local/lib -L../spherepack31 -L../gmres
-LIBS= -lgmres -lspherepack -lgsl -lfftw3 -framework Accelerate
+LIBS= -lgmres -lspherepack -lgsl -lfftw3_threads -lfftw3 -framework Accelerate
 
 TROBJS= trtest.o shtranslate.o shrotate.o spbessel.o util.o
 OBJS= config.o fastsphere.o fsht.o init.o scatmat.o farfield.o spbessel.o \

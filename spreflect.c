@@ -96,13 +96,14 @@ int spinvrfl (complex double *scat, complex double *inc,
 	return ord;
 }
 
-int exbcrfltr (complex double *rflin, complex double *rflout, complex double *trin,
-		complex double *trout, complex double k0, complex double k1,
-		double rho0, double rho1, double r, int ord) {
+int esbldrc (complex double *reflect, complex double *transmit, complex double k0,
+		complex double k1, double rho0, double rho1, double r, int ord) {
 	complex double *jl0, *hl0, *jl1, *hl1, *djl0, *dhl0, *djl1, *dhl1,
-		k0r, k1r;
-	complex double gamma;
+		*outrfl, *outtr, gamma, k0r, k1r;
 	int i;
+
+	outrfl = reflect + ord;
+	outtr = transmit + ord;
 
 	/* Set up the arrays for all of the Bessel function values needed. */
 	jl0 = malloc (8 * ord * sizeof(complex double));
@@ -133,25 +134,24 @@ int exbcrfltr (complex double *rflin, complex double *rflout, complex double *tr
 
 	/* Now build the reflection coefficients for each order. */
 	for (i = 0; i < ord; ++i) {
-		k1r = gamma * hl0[i] * djl1[i] - jl1[i] * dhl0[i];
+		k1r = djl0[i] * hl0[i] - dhl0[i] * jl0[i];
 
-		k0r = hl0[i] * djl0[i] + jl0[i] * dhl0[i];
-		trin[i] = k0r / k1r;
+		k0r = gamma * djl1[i] * hl0[i] - jl1[i] * dhl0[i];
+		transmit[i] = k0r / k1r;
 
-		k0r = gamma * hl0[i] * dhl1[i] - hl1[i] * dhl0[i];
-		rflin[i] = k0r / k1r;
+		k0r = gamma * dhl1[i] * hl0[i] - dhl0[i] * hl1[i];
+		reflect[i] = k0r / k1r;
 
-		k1r = hl1[i] * dhl0[i] - gamma * hl0[i] * dhl1[i];
+		k1r = dhl0[i] * jl0[i] - djl0[i] * hl0[i];
 
-		k0r = gamma * jl0[i] * dhl1[i] - djl0[i] * hl1[i];
-		rflout[i] = k0r / k1r;
+		k0r = gamma * djl1[i] * jl0[i] - djl0[i] * jl1[i];
+		outrfl[i] = k0r / k1r;
 
-		k0r = gamma * (hl1[i] * djl1[i] - jl1[i] * dhl1[i]);
-		trout[i] = k0r / k1r;
+		k0r = gamma * dhl1[i] * jl0[i] - djl0[i] * hl0[i];
+		outtr[i] = k0r / k1r;
 	}
 
 	free (jl0);
 
 	return ord;
 }
-

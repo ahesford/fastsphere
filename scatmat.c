@@ -7,6 +7,7 @@
 #include "translator.h"
 #include "scatmat.h"
 #include "fsht.h"
+#include "farfield.h"
 
 void drivezgmres_ (int *, int *, int *, int *, complex double *,
 		int *, int *, double *, int *, double *);
@@ -72,15 +73,21 @@ int sptrans (complex double *vout, complex double *vin,
 }
 
 /* Compute the MVP between the scattering matrix and a specified vector. */
-int scatmat (complex double *vout, complex double *vin, spscat *spl,
-		int nsph, trdesc *trans, shdata *shtr) {
-	int nterm, n, i;
+int scatmat (complex double *vout, complex double *vin, spscat *spl, int nsph,
+		sptype *bgspt, trdesc *trans, shdata *shtr, shdata *bgtr) {
+	int nterm, n, i, ntbg;
+	complex double *voptr, *viptr;
 
 	nterm = shtr->ntheta * shtr->nphi;
+	ntbg = bgtr->ntheta * bgtr->nphi;
 	n = nterm * nsph;
 
-	/* Zero out the output buffer. */
-	memset (vout, 0, n * sizeof(complex double));
+	voptr = vout + n;
+	viptr = vin + n;
+
+	/* Initialize the output bufer. */
+	if (bgspt->r < 0) memset (vout, 0, n * sizeof(complex double));
+	else fartonear (vout, viptr, spl, nsph, bgspt->k, shtr, bgtr);
 
 	/* Compute the spherical translations. */
 	sptrans (vout, vin, nsph, trans, shtr);
@@ -92,17 +99,48 @@ int scatmat (complex double *vout, complex double *vin, spscat *spl,
 #pragma omp parallel for private(i) default(shared)
 	for (i = 0; i < n; ++i) vout[i] = vin[i] - vout[i];
 
+	/* If there is no enclosing sphere, go no further. */
+	if (bgspt->r < 0) return nsph;
+
+	/* Compute the far-field pattern of the internal spheres. */
+	neartofar (voptr, vin, spl, nsph, bgspt->k, bgtr, shtr);
+	ffsht (voptr, bgtr); /* Convert far-field pattern to SH. */
+
+	/* Compute the reflection of the far-field pattern. */
+	spreflect (voptr, voptr, bgspt->reflect, bgtr->deg, bgtr->nphi);
+
+	/* Add in the standing wave coefficients, transmitted. */
+#pragma omp parallel private(i) default(shared)
+{
+	int j, off, npj;
+
+#pragma omp for
+	for (i = 0; i < bgtr->deg; ++i) {
+		off = i * bgtr->nphi;
+
+		/* Handle the zero-order case. */
+		voptr[off] += viptr[off] * bgspt->transmit[i];
+
+		for (j = 1; j <= i; ++j) {
+			npj = bgtr->nphi - j;
+			voptr[off + j] += viptr[off + j] * bgspt->transmit[i];
+			voptr[off + npj] += viptr[off + npj] * bgspt->transmit[i];
+		}
+	}
+}
+
 	return nsph;
 }
 
 int itsolve (complex double *sol, complex double *rhs, spscat *spl, int nsph,
-		trdesc *trans, shdata *shtr, itconf *itc) {
+		sptype *bgspt, trdesc *trans, shdata *shtr, shdata *bgtr, itconf *itc) {
 	int icntl[7], irc[5], lwork, info[3], n, nterm, one = 1;
 	double rinfo[2], cntl[5];
 	complex double *zwork, *tx, *ty, *tz, zone = 1.0, zzero = 0.0;
 
 	nterm = shtr->ntheta * shtr->nphi;
 	n = nterm * nsph;
+	if (bgspt->r > 0) n += bgtr->ntheta * bgtr->nphi;
 
 	lwork = itc->restart * itc->restart + itc->restart * (n + 5) + 5 * n + 2;
 	zwork = calloc (lwork, sizeof(complex double));
@@ -132,7 +170,7 @@ int itsolve (complex double *sol, complex double *rhs, spscat *spl, int nsph,
 		case GMV:
 			tx = zwork + irc[1] - 1;
 			ty = zwork + irc[3] - 1;
-			scatmat (ty, tx, spl, nsph, trans, shtr);
+			scatmat (ty, tx, spl, nsph, bgspt, trans, shtr, bgtr);
 			break;
 		case GDP:
 			tx = zwork + irc[1] - 1;

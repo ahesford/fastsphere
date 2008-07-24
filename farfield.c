@@ -83,7 +83,8 @@ int neartofar (complex double *vout, complex double *vin, spscat *slist,
 	return ntout;
 }
 
-/* Anterpolate and distribute an incoming field to smaller spheres. */
+/* Anterpolate and distribute an incoming field to smaller spheres. Input is
+ * an SH expansion, output is plane-wave expansion. */
 int fartonear (complex double *vout, complex double *vin, spscat *slist,
 		int nsph, complex double bgk, shdata *shout, shdata *shin) {
 	int ntin, ntout;
@@ -95,10 +96,9 @@ int fartonear (complex double *vout, complex double *vin, spscat *slist,
 	dphi = 2 * M_PI / MAX(shout->nphi, 1);
 
 	buf = malloc (ntout * sizeof(complex double));
-	ffsht (vin, shin);	/* Incoming plane waves to SH coefficients. */
+
 	/* Copy the low-degree coefficients for anterpolation. */
 	copysh (buf, shout->deg, shout->nphi, vin, shout->deg, shout->nphi);
-	ifsht (vin, shin);	/* Plane waves for the incoming field. */
 	ifsht (buf, shout); 	/* Anterpolated angular samples. */
 
 #pragma omp parallel default(shared)
@@ -122,7 +122,7 @@ int fartonear (complex double *vout, complex double *vin, spscat *slist,
 
 				/* Compute the phase-shift factor. */
 				sdc = DVDOT(s, slist[i].cen);
-				sfact = cexp (-I * bgk * sdc);
+				sfact = cexp (I * bgk * sdc);
 				/* Perform the shift. */
 				vp[l] = sfact * buf[l];
 			}

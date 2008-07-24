@@ -16,8 +16,9 @@ enum GMRES_INFO { GEX = 0, GMV, GLP, GRP, GDP };
 
 int sprflpw (complex double *, spscat *, int, shdata *);
 int sptrans (complex double *, complex double *, int, trdesc *, shdata *);
-int scatmat (complex double *, complex double *, spscat *, int, trdesc *, shdata *);
-int itsolve (complex double *, complex double *,
-		spscat *, int, trdesc *, shdata *, itconf *);
+int scatmat (complex double *, complex double *, spscat *, int,
+		sptype *, trdesc *, shdata *, shdata *);
+int itsolve (complex double *, complex double *, spscat *, int,
+		sptype *, trdesc *, shdata *, shdata *, itconf *);
 
 #endif /* __SCATMAT_H_ */
