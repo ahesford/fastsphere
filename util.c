@@ -59,15 +59,11 @@ complex double buildkvec (double cr, double alpha) {
 }
 
 /* Copy the spherical harmonic representation from one location to another. */
-int copysh (complex double *out, int degout, int ldo,
-		complex double *in, int degin, int ldi) {
+int copysh (int deg, complex double *out, int ldo, complex double *in, int ldi) {
 	int i, j, offo, offi;
 
-	/* Blank the output buffer. */
-	memset (out, 0, degout * ldo * sizeof(complex double));
-
 	/* Copy the spherical harmonic coefficients into the right place. */
-	for (i = 0; i < degin; ++i) {
+	for (i = 0; i < deg; ++i) {
 		offo = i * ldo;
 		offi = i * ldi;
 		/* Copy the zero-order coefficients. */
@@ -80,5 +76,5 @@ int copysh (complex double *out, int degout, int ldo,
 		}
 	}
 
-	return degin;
+	return deg;
 }

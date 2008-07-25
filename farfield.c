@@ -54,7 +54,8 @@ int neartofar (complex double *vout, complex double *vin, spscat *slist,
 
 		ffsht (vp, shin);	/* SH coefficients for the sphere. */
 		/* Expand for interpolation. */
-		copysh (buf, shout->deg, shout->nphi, vp, shin->deg, shin->nphi);
+		memset (buf, 0, ntout * sizeof(complex double));
+		copysh (shin->deg, buf, shout->nphi, vp, shin->nphi);
 		ifsht (vp, shin);	/* Back to angular samples. */
 		ifsht (buf, shout);	/* Interpolated angular samples. */
 
@@ -95,10 +96,10 @@ int fartonear (complex double *vout, complex double *vin, spscat *slist,
 	ntout = shout->ntheta * shout->nphi;
 	dphi = 2 * M_PI / MAX(shout->nphi, 1);
 
-	buf = malloc (ntout * sizeof(complex double));
+	buf = calloc (ntout, sizeof(complex double));
 
 	/* Copy the low-degree coefficients for anterpolation. */
-	copysh (buf, shout->deg, shout->nphi, vin, shout->deg, shout->nphi);
+	copysh (shout->deg, buf, shout->nphi, vin, shout->nphi);
 	ifsht (buf, shout); 	/* Anterpolated angular samples. */
 
 #pragma omp parallel default(shared)
