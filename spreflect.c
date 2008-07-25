@@ -126,7 +126,7 @@ int esbldrc (complex double *reflect, complex double *transmit, complex double k
 		k0r = gamma * djl1[i] * jl0[i] - djl0[i] * jl1[i];
 		outrfl[i] = k0r / k1r;
 
-		k0r = gamma * dhl1[i] * jl0[i] - djl0[i] * hl0[i];
+		k0r = gamma * dhl1[i] * jl0[i] - djl0[i] * hl1[i];
 		outtr[i] = k0r / k1r;
 	}
 
