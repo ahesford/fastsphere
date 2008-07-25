@@ -144,6 +144,9 @@ int main (int argc, char **argv) {
 	/* Take the incident field to SH coefficients. */
 	ffsht (trinc.trdata, &shroot);
 
+	/* Compute the transmitted component of the incident field. */
+	spreflect (trinc.trdata, trinc.trdata, bgspt.transmit, shroot.deg, shroot.nphi, 0, 1);
+
 	fprintf (stderr, "Built RHS vector\n");
 
 	if (rhsname) {
@@ -167,10 +170,10 @@ int main (int argc, char **argv) {
 	ffsht (radpat, &shroot);
 
 	/* Transmit this field through the outer boundary. */
-	spreflect (radpat, radpat, bgspt.transmit + shroot.deg, shroot.deg, shroot.nphi, 0);
+	spreflect (radpat, radpat, bgspt.transmit + shroot.deg, shroot.deg, shroot.nphi, 0, 1);
 
 	/* Now add in the reflected standing-wave coefficients. */
-	spreflect (radpat, sptr, bgspt.reflect + shroot.deg, shroot.deg, shroot.nphi, 1);
+	spreflect (radpat, sptr, bgspt.reflect + shroot.deg, shroot.deg, shroot.nphi, 1, 1);
 
 	ifsht (radpat, &shroot);
 

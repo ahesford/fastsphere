@@ -55,36 +55,20 @@ int spbldrc (complex double *vals, complex double k0, complex double k1,
 /* This should be able to handle in-place reflection, where inc and scat are
  * pointers to the same data. */
 int spreflect (complex double *scat, complex double *inc,
-		complex double *spr, int ord, int nphi, int aug) {
+		complex double *spr, int ord, int nphi, int osgn, int asgn) {
 	int i, j, off, npj;
 
-	if (!aug) { 
-		for (i = 0; i < ord; ++i) {
-			off = i * nphi;
-			
-			/* Handle the zero-order case. */
-			scat[off] = inc[off] * spr[i]; 
-			
-			/* Handle the nonzero orders. */
-			for (j = 1; j <= i; ++j) {
-				npj = nphi - j;
-				scat[off + j] = inc[off + j] * spr[i];
-				scat[off + npj] = inc[off + npj] * spr[i];
-			}
-		}
-	} else {
-		for (i = 0; i < ord; ++i) {
-			off = i * nphi;
-			
-			/* Handle the zero-order case. */
-			scat[off] += inc[off] * spr[i]; 
-			
-			/* Handle the nonzero orders. */
-			for (j = 1; j <= i; ++j) {
-				npj = nphi - j;
-				scat[off + j] += inc[off + j] * spr[i];
-				scat[off + npj] += inc[off + npj] * spr[i];
-			}
+	for (i = 0; i < ord; ++i) {
+		off = i * nphi;
+
+		/* Handle the zero-order case. */
+		scat[off] = osgn * scat[off] + asgn * inc[off] * spr[i];
+		
+		/* Handle the nonzero orders. */
+		for (j = 1; j <= i; ++j) {
+			npj = nphi - j;
+			scat[off + j] = osgn * scat[off + j] + asgn * inc[off + j] * spr[i];
+			scat[off + npj] = osgn * scat[off + npj] + asgn * inc[off + npj] * spr[i];
 		}
 	}
 
@@ -129,12 +113,12 @@ int esbldrc (complex double *reflect, complex double *transmit, complex double k
 
 	/* Now build the reflection coefficients for each order. */
 	for (i = 0; i < ord; ++i) {
-		k1r = djl0[i] * hl0[i] - dhl0[i] * jl0[i];
+		k1r = gamma * djl1[i] * hl0[i] - jl1[i] * dhl0[i];
 
-		k0r = gamma * djl1[i] * hl0[i] - jl1[i] * dhl0[i];
+		k0r = djl0[i] * hl0[i] - jl0[i] * dhl0[i];
 		transmit[i] = k0r / k1r;
 
-		k0r = gamma * dhl1[i] * hl0[i] - dhl0[i] * hl1[i];
+		k0r = gamma * hl0[i] * dhl1[i] - hl1[i] * dhl0[i];
 		reflect[i] = k0r / k1r;
 
 		k1r = dhl0[i] * jl0[i] - djl0[i] * hl0[i];

@@ -28,7 +28,7 @@ int sprflpw (complex double *rhs, spscat *spl, int nsph, shdata *shtr) {
 
 		/* Multiply by the reflection coefficient in SH space. */
 		ffsht (vptr, shtr);
-		spreflect (vptr, vptr, (spl + i)->spdesc->reflect, shtr->deg, shtr->nphi, 0);
+		spreflect (vptr, vptr, (spl + i)->spdesc->reflect, shtr->deg, shtr->nphi, 0, 1);
 		ifsht (vptr, shtr);
 	}
 
@@ -103,10 +103,11 @@ int scatmat (complex double *vout, complex double *vin, spscat *spl, int nsph,
 	ffsht (voptr, bgtr); /* Convert far-field pattern to SH. */
 
 	/* Compute the reflection of the far-field pattern. */
-	spreflect (voptr, voptr, bgspt->reflect, bgtr->deg, bgtr->nphi, 0);
+	spreflect (voptr, voptr, bgspt->reflect, bgtr->deg, bgtr->nphi, 0, 1);
 
-	/* Add in the standing wave coefficients, transmitted. */
-	spreflect (voptr, viptr, bgspt->transmit, bgtr->deg, bgtr->nphi, 1);
+	/* Subtract the reflected pattern rom the standing wave. */
+#pragma omp parallel for private(i) default(shared)
+	for (i = 0; i < ntbg; ++i) voptr[i] = viptr[i] - voptr[i];
 
 	return nsph;
 }
