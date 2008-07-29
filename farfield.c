@@ -99,7 +99,7 @@ int fartonear (complex double *vout, complex double *vin, spscat *slist,
 	buf = calloc (ntout, sizeof(complex double));
 
 	/* Copy the low-degree coefficients for anterpolation. */
-	copysh (shout->deg, buf, shout->nphi, vin, shout->nphi);
+	copysh (shout->deg, buf, shout->nphi, vin, shin->nphi);
 	ifsht (buf, shout); 	/* Anterpolated angular samples. */
 
 #pragma omp parallel default(shared)
