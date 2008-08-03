@@ -105,9 +105,9 @@ int scatmat (complex double *vout, complex double *vin, spscat *spl, int nsph,
 	/* Compute the reflection of the far-field pattern. */
 	spreflect (voptr, voptr, bgspt->reflect, bgtr->deg, bgtr->nphi, 0, 1);
 
-	/* Subtract the reflected pattern rom the standing wave. */
+	/* Add the contribution from the standing-wave pattern. */
 #pragma omp parallel for private(i) default(shared)
-	for (i = 0; i < ntbg; ++i) voptr[i] = viptr[i] - voptr[i];
+	for (i = 0; i < ntbg; ++i) voptr[i] += viptr[i];
 
 	return nsph;
 }
