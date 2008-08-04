@@ -10,14 +10,14 @@ int spbldrc (complex double *vals, complex double k0, complex double k1,
 	complex double *jl0, *hl0, *jl1, *hl1, *djl0, *dhl0, *djl1, *dhl1,
 		k0r, k1r;
 	complex double gamma;
-	int i;
+	int i, odp = ord + 1;
 
 	/* Set up the arrays for all of the Bessel function values needed. */
-	jl0 = malloc (8 * ord * sizeof(complex double));
-	hl0 = jl0 + ord;
-	jl1 = hl0 + ord;
-	hl1 = jl1 + ord;
-	djl0 = hl1 + ord;
+	jl0 = malloc (4 * (ord + odp) * sizeof(complex double));
+	hl0 = jl0 + odp;
+	jl1 = hl0 + odp;
+	hl1 = jl1 + odp;
+	djl0 = hl1 + odp;
 	dhl0 = djl0 + ord;
 	djl1 = dhl0 + ord;
 	dhl1 = djl1 + ord;
@@ -28,10 +28,10 @@ int spbldrc (complex double *vals, complex double k0, complex double k1,
 	gamma = rho0 * k1 / (rho1 * k0);
 
 	/* Compute the four Bessel function values. */
-	spbesj (jl0, k0r, ord);
-	spbesh (hl0, k0r, ord);
-	spbesj (jl1, k1r, ord);
-	spbesh (hl1, k1r, ord);
+	spbesj (jl0, k0r, odp);
+	spbesh (hl0, k0r, odp);
+	spbesj (jl1, k1r, odp);
+	spbesh (hl1, k1r, odp);
 
 	/* Now compute all of the (whole-argument) derivatives. */
 	dspbesj (djl0, jl0, k0r, ord);
