@@ -67,7 +67,7 @@ int main (int argc, char **argv) {
 	trdesc *trans, trinc;
 	double rsrc;
 
-	complex double *rhs, *sol, *radpat, *inc;
+	complex double *rhs, *sol, *radpat, *sptr;
 
 	FILE *fptr = NULL;
 	char *inname = NULL, *outname = NULL, *rhsname = NULL, ch;
@@ -122,9 +122,10 @@ int main (int argc, char **argv) {
 	n = nspheres * nterm + shroot.ntheta * shroot.nphi;
 	rhs = calloc (2 * n, sizeof(complex double));
 	sol = rhs + n;
-	radpat = rhs + nspheres * nterm;
 
-	inc = calloc (shroot.ntheta * shroot.nphi, sizeof(complex double));
+	n = nspheres * nterm;
+	radpat = rhs + n;
+	sptr = sol + n;
 
 	trinc.trunc = 2 * shroot.deg - 1;
 	trinc.type = TRPLANE;
@@ -139,16 +140,16 @@ int main (int argc, char **argv) {
 	trinc.sdir[2] /= rsrc;
 
 	trinc.kr = bg.k * rsrc;
-	trinc.trdata = inc;
+	trinc.trdata = radpat;
 
 	/* The plane-wave incident field. */
 	translator (&trinc, shroot.ntheta, shroot.nphi, shroot.theta);
 
 	/* Take the incident field to SH coefficients. */
-	ffsht (trinc.trdata, &shroot);
+	ffsht (radpat, &shroot);
 
 	/* Compute the transmitted component of the incident field. */
-	spreflect (radpat, inc, bgspt.transmit, shroot.deg, shroot.nphi, 0, 1);
+	spreflect (radpat, radpat, bgspt.transmit, shroot.deg, shroot.nphi, 0, 1);
 
 	fprintf (stderr, "Built RHS vector\n");
 
@@ -171,7 +172,7 @@ int main (int argc, char **argv) {
 	spreflect (radpat, radpat, bgspt.transmit + shroot.deg, shroot.deg, shroot.nphi, 0, 1);
 
 	/* Now add in the reflected incident wave coefficients. */
-	spreflect (radpat, inc, bgspt.reflect + shroot.deg, shroot.deg, shroot.nphi, 1, 1);
+	spreflect (radpat, sptr, bgspt.reflect + shroot.deg, shroot.deg, shroot.nphi, 1, 1);
 
 	ifsht (radpat, &shroot);
 
@@ -185,7 +186,6 @@ int main (int argc, char **argv) {
 	sphclrfmm (trans, nspheres * nspheres);
 	free (trans);
 	free (rhs);
-	free (inc);
 	fshtfree (&shroot);
 	fshtfree (&shtr);
 
