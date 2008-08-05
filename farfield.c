@@ -110,7 +110,7 @@ int fartonear (complex double *vout, complex double *vin, spscat *slist,
 
 #pragma omp for
 	for (i = 0; i < nsph; ++i) {
-		vp = vout + i * ntin;
+		vp = vout + i * ntout;
 
 		/* Add the phase-shifted sphere pattern to the total pattern. */
 		for (j = 0, l = 0; j < shout->ntheta; ++j) {
