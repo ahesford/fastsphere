@@ -145,11 +145,10 @@ int main (int argc, char **argv) {
 	/* The plane-wave incident field. */
 	translator (&trinc, shroot.ntheta, shroot.nphi, shroot.theta);
 
-	/* Take the incident field to SH coefficients. */
-	ffsht (radpat, &shroot);
-
 	/* Compute the transmitted component of the incident field. */
+	ffsht (radpat, &shroot);
 	spreflect (radpat, radpat, bgspt.transmit, shroot.deg, shroot.nphi, 0, 1);
+	ifsht (radpat, &shroot);
 
 	fprintf (stderr, "Built RHS vector\n");
 
@@ -166,7 +165,10 @@ int main (int argc, char **argv) {
 
 	/* Compute the far-field pattern of the internal spheres. */
 	neartofar (radpat, sol, slist, nspheres, bgspt.k, &shroot, &shtr);
+
+	/* Convert the boundary fields to SH coefficients for reflections. */
 	ffsht (radpat, &shroot);
+	ffsht (sptr, &shroot);
 
 	/* Transmit this field through the outer boundary. */
 	spreflect (radpat, radpat, bgspt.transmit + shroot.deg, shroot.deg, shroot.nphi, 0, 1);

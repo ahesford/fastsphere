@@ -100,10 +100,11 @@ int scatmat (complex double *vout, complex double *vin, spscat *spl, int nsph,
 
 	/* Compute the far-field pattern of the internal spheres. */
 	neartofar (voptr, vin, spl, nsph, bgspt->k, bgtr, shtr);
-	ffsht (voptr, bgtr); /* Convert far-field pattern to SH. */
 
 	/* Compute the reflection of the far-field pattern. */
+	ffsht (voptr, bgtr);
 	spreflect (voptr, voptr, bgspt->reflect, bgtr->deg, bgtr->nphi, 0, 1);
+	ifsht (voptr, bgtr);
 
 	/* Add the contribution from the standing-wave pattern. */
 #pragma omp parallel for private(i) default(shared)

@@ -90,48 +90,50 @@ int fartonear (complex double *vout, complex double *vin, spscat *slist,
 		int nsph, complex double bgk, shdata *shout, shdata *shin) {
 	int ntin, ntout;
 	double dphi;
-	complex double *buf;
 
 	ntin = shin->ntheta * shin->nphi;
 	ntout = shout->ntheta * shout->nphi;
 	dphi = 2 * M_PI / MAX(shout->nphi, 1);
 
-	buf = calloc (ntout, sizeof(complex double));
-
-	/* Copy the low-degree coefficients for anterpolation. */
-	copysh (shout->deg, buf, shout->nphi, vin, shin->nphi);
-	ifsht (buf, shout); 	/* Anterpolated angular samples. */
-
 #pragma omp parallel default(shared)
 {
 	int i, j, k, l;
 	double s[3], sdc, sth, phi;
-	complex double *vp, sfact;
+	complex double *vp, *buf;
+
+	buf = malloc (ntin * sizeof(complex double));
 
 #pragma omp for
 	for (i = 0; i < nsph; ++i) {
 		vp = vout + i * ntout;
 
-		/* Add the phase-shifted sphere pattern to the total pattern. */
-		for (j = 0, l = 0; j < shout->ntheta; ++j) {
-			s[2] = cos((shout->theta)[j]);
-			sth = sin((shout->theta)[j]);
-			for (k = 0; k < shout->nphi; ++k, ++l) {
+		memcpy (buf, vin, ntin * sizeof(complex double));
+
+		/* Shift the phase of the sphere pattern. */
+		for (j = 0, l = 0; j < shin->ntheta; ++j) {
+			s[2] = cos((shin->theta)[j]);
+			sth = sin((shin->theta)[j]);
+			for (k = 0; k < shin->nphi; ++k, ++l) {
 				phi = k * dphi;
 				s[0] = sth * cos(phi);
 				s[1] = sth * sin(phi);
 
 				/* Compute the phase-shift factor. */
 				sdc = DVDOT(s, slist[i].cen);
-				sfact = cexp (I * bgk * sdc);
-				/* Perform the shift. */
-				vp[l] = sfact * buf[l];
+				buf[l] *= cexp (I * bgk * sdc);
 			}
 		}
+
+		ffsht (buf, shin);
+
+		memset (vp, 0, ntout * sizeof(complex double));
+		copysh (shout->deg, vp, shout->nphi, buf, shin->nphi);
+
+		ifsht (vp, shout);
 	}
-}
 
 	free (buf);
+}
 
 	return ntout;
 }
