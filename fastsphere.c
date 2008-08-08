@@ -98,7 +98,9 @@ int main (int argc, char **argv) {
 
 	readcfg (fptr, &nspheres, &nsptype, &sparms, &bgspt, &slist, &bg, &exct, &itc);
 	fprintf (stderr, "Parsed configuration for %d spheres at %g MHz\n", nspheres, exct.f / 1e6);
-	sphinit (sparms, nsptype, bgspt.k, bgspt.rho, &shtr);
+	esbdinit (&bgspt, bg.k, 1.0, &shroot);
+	fprintf (stderr, "Built data for enclosing sphere\n");
+	sphinit (sparms, nsptype, bgspt.k, bgspt.rho, &shtr, shroot.ntheta);
 	fprintf (stderr, "Initialized spherical harmonic data for degree %d\n", shtr.deg);
 	trans = sphbldfmm (slist, nspheres, bgspt.k, &shtr);
 	fprintf (stderr, "Built FMM translators for all spheres\n");
@@ -113,10 +115,6 @@ int main (int argc, char **argv) {
 	fftw_plan_with_nthreads (n);
 	fprintf (stderr, "Using %d threads for root-level FFT\n", n);
 #endif /* _OPENMP */
-
-	/* Set up far-field (or enclosing sphere) transform data. */
-	esbdinit (&bgspt, bg.k, 1.0, &shroot);
-	fprintf (stderr, "Built data for enclosing sphere\n");
 
 	nterm = shtr.ntheta * shtr.nphi;
 	n = nspheres * nterm + shroot.ntheta * shroot.nphi;

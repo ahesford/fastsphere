@@ -9,8 +9,9 @@
 #include "util.h"
 #include "init.h"
 
-int sphinit (sptype *spt, int nspt, complex double bgk, double bgrho, shdata *shtr) {
-	int i, deg = 0, nang;
+int sphinit (sptype *spt, int nspt, complex double bgk,
+		double bgrho, shdata *shtr, int nt) {
+	int i, deg = 0;
 	sptype *sptr;
 
 	/* Find the maximum spherical harmonic degree required. */
@@ -19,10 +20,11 @@ int sphinit (sptype *spt, int nspt, complex double bgk, double bgrho, shdata *sh
 		deg = MAX(deg, sptr->deg);
 	}
 
-	nang = 2 * deg - 1; /* The number of angular samples (per dimension). */
+	/* Use a default value for angular samples if none specified. */
+	if (nt < 1) nt = 2 * deg - 1;
 
 	/* Initialize the SH transform data. */
-	fshtinit (shtr, deg, nang, 2 * nang);
+	fshtinit (shtr, deg, nt, 2 * nt);
 
 	/* Initialize and populate the SH reflection coefficients. */
 #pragma omp parallel for private(i,sptr) default(shared)

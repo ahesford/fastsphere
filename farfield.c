@@ -44,20 +44,11 @@ int neartofar (complex double *vout, complex double *vin, spscat *slist,
 {
 	int i, j, k, l;
 	double s[3], sdc, sth, phi;
-	complex double *buf, *vp, sfact;
-
-	buf = malloc (ntout * sizeof(complex double));
+	complex double *vp, sfact;
 
 #pragma omp for
 	for (i = 0; i < nsph; ++i) {
 		vp = vin + i * ntin;
-
-		ffsht (vp, shin);	/* SH coefficients for the sphere. */
-		/* Expand for interpolation. */
-		memset (buf, 0, ntout * sizeof(complex double));
-		copysh (shin->deg, buf, shout->nphi, vp, shin->nphi);
-		ifsht (vp, shin);	/* Back to angular samples. */
-		ifsht (buf, shout);	/* Interpolated angular samples. */
 
 		/* Add the phase-shifted sphere pattern to the total pattern. */
 		for (j = 0, l = 0; j < shout->ntheta; ++j) {
@@ -73,12 +64,10 @@ int neartofar (complex double *vout, complex double *vin, spscat *slist,
 				sfact = cexp (-I * bgk * sdc);
 				/* Augment the pattern, with synchronization. */
 #pragma omp critical(outrad)
-				vout[l] += sfact * buf[l];
+				vout[l] += sfact * vp[l];
 			}
 		}
 	}
-
-	free (buf);
 }
 
 	return ntout;
@@ -99,15 +88,11 @@ int fartonear (complex double *vout, complex double *vin, spscat *slist,
 {
 	int i, j, k, l;
 	double s[3], sdc, sth, phi;
-	complex double *vp, *buf;
-
-	buf = malloc (ntin * sizeof(complex double));
+	complex double *vp;
 
 #pragma omp for
 	for (i = 0; i < nsph; ++i) {
 		vp = vout + i * ntout;
-
-		memcpy (buf, vin, ntin * sizeof(complex double));
 
 		/* Shift the phase of the sphere pattern. */
 		for (j = 0, l = 0; j < shin->ntheta; ++j) {
@@ -120,19 +105,10 @@ int fartonear (complex double *vout, complex double *vin, spscat *slist,
 
 				/* Compute the phase-shift factor. */
 				sdc = DVDOT(s, slist[i].cen);
-				buf[l] *= cexp (I * bgk * sdc);
+				vp[l] = vin[l] * cexp (I * bgk * sdc);
 			}
 		}
-
-		ffsht (buf, shin);
-
-		memset (vp, 0, ntout * sizeof(complex double));
-		copysh (shout->deg, vp, shout->nphi, buf, shin->nphi);
-
-		ifsht (vp, shout);
 	}
-
-	free (buf);
 }
 
 	return ntout;

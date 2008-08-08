@@ -7,7 +7,7 @@
 #include "fastsphere.h"
 #include "translator.h"
 
-int sphinit (sptype *, int, complex double, double, shdata *);
+int sphinit (sptype *, int, complex double, double, shdata *, int);
 int esbdinit (sptype *, complex double, double, shdata *);
 void clrspheres (sptype *, int);
 
