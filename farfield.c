@@ -74,7 +74,7 @@ int neartofar (complex double *vout, complex double *vin, spscat *slist,
 }
 
 /* Anterpolate and distribute an incoming field to smaller spheres. Input is
- * an SH expansion, output is plane-wave expansion. */
+ * a plane-wave expansion, output is plane-wave expansion. */
 int fartonear (complex double *vout, complex double *vin, spscat *slist,
 		int nsph, complex double bgk, shdata *shout, shdata *shin) {
 	int ntin, ntout;
@@ -82,7 +82,7 @@ int fartonear (complex double *vout, complex double *vin, spscat *slist,
 
 	ntin = shin->ntheta * shin->nphi;
 	ntout = shout->ntheta * shout->nphi;
-	dphi = 2 * M_PI / MAX(shout->nphi, 1);
+	dphi = 2 * M_PI / MAX(shin->nphi, 1);
 
 #pragma omp parallel default(shared)
 {
