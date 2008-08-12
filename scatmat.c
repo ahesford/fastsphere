@@ -18,7 +18,7 @@ int buildrhs (complex double *rhs, spscat *spl, int nsph, shdata *shtr) {
 	int i, nterm;
 	complex double *vptr;
 
-	nterm = shtr->ntheta * shtr->nphi;
+	nterm = shtr->ntheta * shtr->nphi + 2;
 
 #pragma omp parallel for private(i,vptr) default(shared)
 	for (i = 0; i < nsph; ++i) {
@@ -38,7 +38,7 @@ int scatmat (complex double *vout, complex double *vin, spscat *spl,
 	int off, k, nterm, n, nsq;
 	complex double *voptr, *viptr;
 
-	nterm = shtr->ntheta * shtr->nphi;
+	nterm = shtr->ntheta * shtr->nphi + 2;
 	n = nterm * nsph;
 	nsq = nsph * nsph;
 
@@ -48,11 +48,9 @@ int scatmat (complex double *vout, complex double *vin, spscat *spl,
 	/* Perform the translations. */
 #pragma omp parallel private(off,k,voptr,viptr) default(shared)
 {
-	complex double *dtr;
 	int i, j;
 
 	/* Buffer for doing in-place spherical harmonic translations. */
-	dtr = malloc (nterm * sizeof(complex double));
 
 #pragma omp for
 	for (off = 0; off < nsq; ++off) {
@@ -71,8 +69,6 @@ int scatmat (complex double *vout, complex double *vin, spscat *spl,
 		for (k = 0; k < nterm; ++k) 
 			voptr[k] += trans[off].trdata[k] * viptr[k];
 	}
-
-	free (dtr);
 }
 
 #pragma omp parallel for private(off, k,voptr) default(shared)
@@ -100,7 +96,7 @@ int itsolve (complex double *sol, complex double *rhs, spscat *spl, int nsph,
 	double rinfo[2], cntl[5];
 	complex double *zwork, *tx, *ty, *tz, zone = 1.0, zzero = 0.0;
 
-	nterm = shtr->ntheta * shtr->nphi;
+	nterm = shtr->ntheta * shtr->nphi + 2;
 	n = nterm * nsph;
 
 	lwork = itc->restart * itc->restart + itc->restart * (n + 5) + 5 * n + 2;

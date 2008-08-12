@@ -96,7 +96,7 @@ int main (int argc, char **argv) {
 	fshtinit (&shroot, shtr.deg, n, 2 * n);
 	fprintf (stderr, "Built spherical harmonic data for far-field\n");
 
-	nterm = shtr.ntheta * shtr.nphi;
+	nterm = shtr.ntheta * shtr.nphi + 2;
 	n = nspheres * nterm;
 	rhs = calloc (2 * n, sizeof(complex double));
 	sol = rhs + n;
@@ -148,7 +148,7 @@ int main (int argc, char **argv) {
 	fflush (stdout);
 
 	/* Compute the far-field radiation pattern of the object. */
-	n = shroot.ntheta * shroot.nphi;
+	n = shroot.ntheta * shroot.nphi + 2;
 	radpat = malloc (n * sizeof(complex double));
 	farfield (radpat, sol, slist, nspheres, &bg, &shroot, &shtr);
 

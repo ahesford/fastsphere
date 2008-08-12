@@ -53,8 +53,8 @@ int farfield (complex double *vout, complex double *vin, spscat *slist,
 	int ntin, ntout;
 	double dphi;
 
-	ntin = shin->ntheta * shin->nphi;
-	ntout = shout->ntheta * shout->nphi;
+	ntin = shin->ntheta * shin->nphi + 2;
+	ntout = shout->ntheta * shout->nphi + 2;
 	dphi = 2 * M_PI / MAX(shout->nphi, 1);
 
 	memset (vout, 0, ntout * sizeof(complex double));
@@ -93,6 +93,14 @@ int farfield (complex double *vout, complex double *vin, spscat *slist,
 				vout[l] += sfact * buf[l];
 			}
 		}
+
+		/* Add in the polar contributions as well. */
+		l = shout->ntheta * shout->nphi;
+#pragma omp critical(polrad)
+{
+		vout[l] += buf[l] * cexp (-I * bg->k * slist[i].cen[2]);
+		vout[l + 1] += buf[l + 1] * cexp (I * bg->k * slist[i].cen[2]);
+}
 	}
 
 	free (buf);

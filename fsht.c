@@ -159,13 +159,16 @@ int ffsht (complex double *samp, shdata *dat) {
 /* Inverse spherical harmonic transform: take SH coefficients to sample of the
  * function in theta and phi. */
 int ifsht (complex double *samp, shdata *dat) {
-	int i, j, k, aoff, npk, dm1;
+	int i, j, k, aoff, npk, dm1, n;
 	double cth, *lgvals;
-	complex double *beta, *fftbuf;
+	complex double *beta, *fftbuf, polval[2];
+
+	/* The non-polar samples. */
+	n = dat->ntheta * dat->nphi;
 
 	/* Zero out the FFT buffer to prepare for evaluation of function. */
-	fftbuf = fftw_malloc (dat->ntheta * dat->nphi * sizeof(complex double));
-	memset (fftbuf, 0, dat->ntheta * dat->nphi * sizeof(complex double));
+	fftbuf = fftw_malloc (n * sizeof(complex double));
+	memset (fftbuf, 0, n * sizeof(complex double));
 
 	lgvals = malloc (dat->deg * sizeof(double));
 
@@ -199,9 +202,26 @@ int ifsht (complex double *samp, shdata *dat) {
 		beta += dat->nphi;
 	}
 
+	polval[0] = polval[1] = 0;
+
+	/* Handle the poles. Note that the zero-order Legendre functions are
+	 * polynomials, so the evenness and oddness can be exploited. */
+	gsl_sf_legendre_sphPlm_array (dm1, 0, 1, lgvals);
+
+	for (j = 0; j < dat->deg; ++j) {
+		/* Sign change for the south pole. */
+		aoff = 1 - 2 * (j % 2);
+		polval[0] += samp[j * dat->nphi] * lgvals[j];
+		polval[1] += aoff * samp[j * dat->nphi] * lgvals[j];
+	}
+
 	/* Perform the inverse FFT and copy the values to the storage area. */
 	fftw_execute_dft (dat->bplan, fftbuf, fftbuf);
-	memcpy (samp, fftbuf, dat->ntheta * dat->nphi * sizeof(complex double));
+	memcpy (samp, fftbuf, n * sizeof(complex double));
+
+	/* Copy the polar values. */
+	samp[n] = polval[0];
+	samp[n + 1] = polval[1];
 
 	/* Eliminate the FFT buffer. */
 	fftw_free (fftbuf);

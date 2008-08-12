@@ -76,6 +76,10 @@ int translator (trdesc *trans, int ntheta, int nphi, double *theta) {
 		}
 	}
 
+	/* Now build the polar samples. */
+	*tptr = transang (trans->trunc, hfn, lgwork, trans->sdir, 0, 0);
+	*tptr = transang (trans->trunc, hfn, lgwork, trans->sdir, M_PI, 0);
+
 	free (lgwork);
 	free (hfn);
 
