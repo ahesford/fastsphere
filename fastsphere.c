@@ -122,8 +122,8 @@ int main (int argc, char **argv) {
 	trans = sphbldfmm (slist, nspheres, bgspt.k, &shtr);
 	fprintf (stderr, "Built FMM translators for all spheres\n");
 
-	nterm = shtr.ntheta * shtr.nphi;
-	n = nspheres * nterm + shroot.ntheta * shroot.nphi;
+	nterm = shtr.ntheta * shtr.nphi + 2;
+	n = nspheres * nterm + shroot.ntheta * shroot.nphi + 2;
 	rhs = calloc (2 * n, sizeof(complex double));
 	sol = rhs + n;
 
