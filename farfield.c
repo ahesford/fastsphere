@@ -87,6 +87,7 @@ int neartofar (complex double *vout, complex double *vin, spscat *slist,
 }
 	}
 
+	free (buf);
 }
 
 	return ntout;
@@ -137,6 +138,8 @@ int fartonear (complex double *vout, complex double *vin, spscat *slist,
 		copysh (shout->deg, vp, shout->nphi, buf, shin->nphi);
 		ifsht (vp, shout);
 	}
+
+	free (buf);
 }
 
 	return ntout;
