@@ -96,6 +96,13 @@ int main (int argc, char **argv) {
 	fftw_init_threads ();
 #endif
 
+	readcfg (fptr, &nspheres, &nsptype, &sparms, &bgspt, &slist, &bg, &exct, &itc);
+	fprintf (stderr, "Parsed configuration for %d spheres at %g MHz\n", nspheres, exct.f / 1e6);
+	sphinit (sparms, nsptype, bgspt.k, bgspt.rho, &shtr, shroot.ntheta);
+	fprintf (stderr, "Initialized spherical harmonic data for degree %d\n", shtr.deg);
+	trans = sphbldfmm (slist, nspheres, bgspt.k, &shtr);
+	fprintf (stderr, "Built FMM translators for all spheres\n");
+
 #ifdef _OPENMP
 	/* Multithreaded FFT for the root-level transform, since that is
 	 * a serial point in the code. All other FFTs are serialized, because
@@ -107,20 +114,8 @@ int main (int argc, char **argv) {
 	fprintf (stderr, "Using %d threads for root-level FFT\n", n);
 #endif /* _OPENMP */
 
-	readcfg (fptr, &nspheres, &nsptype, &sparms, &bgspt, &slist, &bg, &exct, &itc);
-	fprintf (stderr, "Parsed configuration for %d spheres at %g MHz\n", nspheres, exct.f / 1e6);
 	esbdinit (&bgspt, bg.k, 1.0, &shroot);
 	fprintf (stderr, "Built data for enclosing sphere\n");
-
-#ifdef _OPENMP
-	/* The spherical FSHTs must have a single-thread FFT. */
-	fftw_plan_with_nthreads (1);
-#endif /* _OPENMP */
-
-	sphinit (sparms, nsptype, bgspt.k, bgspt.rho, &shtr, shroot.ntheta);
-	fprintf (stderr, "Initialized spherical harmonic data for degree %d\n", shtr.deg);
-	trans = sphbldfmm (slist, nspheres, bgspt.k, &shtr);
-	fprintf (stderr, "Built FMM translators for all spheres\n");
 
 	nterm = shtr.ntheta * shtr.nphi + 2;
 	n = nspheres * nterm + shroot.ntheta * shroot.nphi + 2;

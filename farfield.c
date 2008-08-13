@@ -44,11 +44,20 @@ int neartofar (complex double *vout, complex double *vin, spscat *slist,
 {
 	int i, j, k, l;
 	double s[3], sdc, sth, phi;
-	complex double *vp, sfact;
+	complex double *vp, sfact, *buf;
+
+	buf = malloc (ntout * sizeof(complex double));
 
 #pragma omp for
 	for (i = 0; i < nsph; ++i) {
 		vp = vin + i * ntin;
+
+		/* Interpolate the spherical scattered field. */
+		ffsht (vp, shin);
+		memset (buf, 0, ntout * sizeof(complex double));
+		copysh (shin->deg, buf, shout->nphi, vp, shin->nphi);
+		ifsht (vp, shin);
+		ifsht (buf, shout);
 
 		/* Add the phase-shifted sphere pattern to the total pattern. */
 		for (j = 0, l = 0; j < shout->ntheta; ++j) {
@@ -64,16 +73,17 @@ int neartofar (complex double *vout, complex double *vin, spscat *slist,
 				sfact = cexp (-I * bgk * sdc);
 				/* Augment the pattern, with synchronization. */
 #pragma omp critical(outrad)
-				vout[l] += sfact * vp[l];
+				vout[l] += sfact * buf[l];
 			}
 		}
 
 		/* Augment the poles with synchronization. The offset should
 		 * be properly computed from the for loop. */
+		l = shout->ntheta * shout->nphi;
 #pragma omp critical(outrad)
 {
-		vout[l] += cexp(-I * bgk * slist[i].cen[2]) * vp[l];
-		vout[l + 1] += cexp (I * bgk * slist[i].cen[2]) * vp[l + 1];
+		vout[l] += cexp(-I * bgk * slist[i].cen[2]) * buf[l];
+		vout[l + 1] += cexp (I * bgk * slist[i].cen[2]) * buf[l + 1];
 }
 	}
 
@@ -97,7 +107,9 @@ int fartonear (complex double *vout, complex double *vin, spscat *slist,
 {
 	int i, j, k, l;
 	double s[3], sdc, sth, phi;
-	complex double *vp;
+	complex double *vp, *buf;
+
+	buf = malloc (ntin * sizeof(complex double));
 
 #pragma omp for
 	for (i = 0; i < nsph; ++i) {
@@ -114,13 +126,16 @@ int fartonear (complex double *vout, complex double *vin, spscat *slist,
 
 				/* Compute the phase-shift factor. */
 				sdc = DVDOT(s, slist[i].cen);
-				vp[l] = vin[l] * cexp (I * bgk * sdc);
+				buf[l] = vin[l] * cexp (I * bgk * sdc);
 			}
 		}
 		
-		/* Shift the poles. */
-		vp[l] = cexp(I * bgk * slist[i].cen[2]) * vin[l];
-		vp[l + 1] = cexp (-I * bgk * slist[i].cen[2]) * vin[l + 1];
+		/* The poles don't contribute to the forward SHT, and they
+		 * are re-evaluated by the inverse SHT. Don't compute them. */
+		ffsht (buf, shin);
+		memset (vp, 0, ntout * sizeof(complex double));
+		copysh (shout->deg, vp, shout->nphi, buf, shin->nphi);
+		ifsht (vp, shout);
 	}
 }
 
