@@ -98,7 +98,7 @@ int main (int argc, char **argv) {
 
 	readcfg (fptr, &nspheres, &nsptype, &sparms, &bgspt, &slist, &bg, &exct, &itc);
 	fprintf (stderr, "Parsed configuration for %d spheres at %g MHz\n", nspheres, exct.f / 1e6);
-	sphinit (sparms, nsptype, bgspt.k, bgspt.rho, &shtr, shroot.ntheta);
+	sphinit (sparms, nsptype, bgspt.k, bgspt.rho, &shtr, -1);
 	fprintf (stderr, "Initialized spherical harmonic data for degree %d\n", shtr.deg);
 	trans = sphbldfmm (slist, nspheres, bgspt.k, &shtr);
 	fprintf (stderr, "Built FMM translators for all spheres\n");
