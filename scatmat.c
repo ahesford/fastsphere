@@ -8,6 +8,7 @@
 #include "scatmat.h"
 #include "fsht.h"
 #include "farfield.h"
+#include "sprsinterp.h"
 
 void drivezgmres_ (int *, int *, int *, int *, complex double *,
 		int *, int *, double *, int *, double *);
@@ -74,7 +75,7 @@ int sptrans (complex double *vout, complex double *vin,
 
 /* Compute the MVP between the scattering matrix and a specified vector. */
 int scatmat (complex double *vout, complex double *vin, spscat *spl, int nsph,
-		sptype *bgspt, trdesc *trans, shdata *shtr, shdata *bgtr) {
+		sptype *bgspt, trdesc *trans, shdata *shtr, shdata *bgtr, sprow *imat) {
 	int nterm, n, i, ntbg;
 	complex double *voptr, *viptr;
 
@@ -86,7 +87,7 @@ int scatmat (complex double *vout, complex double *vin, spscat *spl, int nsph,
 	viptr = vin + n;
 
 	/* Initialize the output bufer. */
-	fartonear (vout, viptr, spl, nsph, bgspt->k, shtr, bgtr);
+	fartonear (vout, viptr, spl, nsph, bgspt->k, shtr, bgtr, imat);
 
 	/* Compute the spherical translations. */
 	sptrans (vout, vin, nsph, trans, shtr);
@@ -99,7 +100,7 @@ int scatmat (complex double *vout, complex double *vin, spscat *spl, int nsph,
 	for (i = 0; i < n; ++i) vout[i] = vin[i] - vout[i];
 
 	/* Compute the far-field pattern of the internal spheres. */
-	neartofar (voptr, vin, spl, nsph, bgspt->k, bgtr, shtr);
+	neartofar (voptr, vin, spl, nsph, bgspt->k, bgtr, shtr, imat);
 
 	/* Compute the reflection of the far-field pattern. */
 	ffsht (voptr, bgtr);
@@ -113,8 +114,9 @@ int scatmat (complex double *vout, complex double *vin, spscat *spl, int nsph,
 	return nsph;
 }
 
-int itsolve (complex double *sol, complex double *rhs, spscat *spl, int nsph,
-		sptype *bgspt, trdesc *trans, shdata *shtr, shdata *bgtr, itconf *itc) {
+int itsolve (complex double *sol, complex double *rhs, spscat *spl,
+		int nsph, sptype *bgspt, trdesc *trans, shdata *shtr,
+		shdata *bgtr, itconf *itc, sprow *imat) {
 	int icntl[7], irc[5], lwork, info[3], n, nterm, one = 1;
 	double rinfo[2], cntl[5];
 	complex double *zwork, *tx, *ty, *tz, zone = 1.0, zzero = 0.0;
@@ -150,7 +152,7 @@ int itsolve (complex double *sol, complex double *rhs, spscat *spl, int nsph,
 		case GMV:
 			tx = zwork + irc[1] - 1;
 			ty = zwork + irc[3] - 1;
-			scatmat (ty, tx, spl, nsph, bgspt, trans, shtr, bgtr);
+			scatmat (ty, tx, spl, nsph, bgspt, trans, shtr, bgtr, imat);
 			break;
 		case GDP:
 			tx = zwork + irc[1] - 1;

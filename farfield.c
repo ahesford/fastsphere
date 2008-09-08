@@ -7,6 +7,8 @@
 #include "farfield.h"
 #include "util.h"
 
+#include "sprsinterp.h"
+
 /* Compute the required order of the root sphere. */
 int rootorder (spscat *slist, int nsph, complex double bgk) {
 	int i, l;
@@ -29,8 +31,8 @@ int rootorder (spscat *slist, int nsph, complex double bgk) {
 
 /* Shift and combine outgoing plane waves from small spheres into one large
  * plane-wave pattern. */
-int neartofar (complex double *vout, complex double *vin, spscat *slist,
-		int nsph, complex double bgk, shdata *shout, shdata *shin) {
+int neartofar (complex double *vout, complex double *vin, spscat *slist, int nsph,
+		complex double bgk, shdata *shout, shdata *shin, sprow *imat) {
 	int ntin, ntout;
 	double dphi;
 
@@ -52,12 +54,9 @@ int neartofar (complex double *vout, complex double *vin, spscat *slist,
 	for (i = 0; i < nsph; ++i) {
 		vp = vin + i * ntin;
 
-		/* Interpolate the spherical scattered field. */
-		ffsht (vp, shin);
-		memset (buf, 0, ntout * sizeof(complex double));
-		copysh (shin->deg, buf, shout->nphi, vp, shin->nphi);
-		ifsht (vp, shin);
-		ifsht (buf, shout);
+		/* Interpolate the spherical scattered field. The output
+		 * buffer is first zeroed by the multiplication. */
+		smvmpy (buf, ntout, imat, vp);
 
 		/* Add the phase-shifted sphere pattern to the total pattern. */
 		for (j = 0, l = 0; j < shout->ntheta; ++j) {
@@ -95,8 +94,8 @@ int neartofar (complex double *vout, complex double *vin, spscat *slist,
 
 /* Anterpolate and distribute an incoming field to smaller spheres. Input is
  * a plane-wave expansion, output is plane-wave expansion. */
-int fartonear (complex double *vout, complex double *vin, spscat *slist,
-		int nsph, complex double bgk, shdata *shout, shdata *shin) {
+int fartonear (complex double *vout, complex double *vin, spscat *slist, int nsph,
+		complex double bgk, shdata *shout, shdata *shin, sprow *imat) {
 	int ntin, ntout;
 	double dphi;
 
@@ -131,12 +130,9 @@ int fartonear (complex double *vout, complex double *vin, spscat *slist,
 			}
 		}
 		
-		/* The poles don't contribute to the forward SHT, and they
-		 * are re-evaluated by the inverse SHT. Don't compute them. */
-		ffsht (buf, shin);
+		/* Anterpolate the result. */
 		memset (vp, 0, ntout * sizeof(complex double));
-		copysh (shout->deg, vp, shout->nphi, buf, shin->nphi);
-		ifsht (vp, shout);
+		smvtmpy (vp, ntin, imat, buf);
 	}
 
 	free (buf);

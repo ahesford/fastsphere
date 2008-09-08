@@ -15,7 +15,7 @@ LIBS= -lgmres -lspherepack -lgsl -lgslcblas -lfftw3_threads -lfftw3 \
 
 TROBJS= trtest.o shtranslate.o shrotate.o spbessel.o util.o
 OBJS= config.o fastsphere.o fsht.o init.o scatmat.o farfield.o spbessel.o \
-      shrotate.o shtranslate.o spreflect.o translator.o util.o
+      shrotate.o shtranslate.o spreflect.o translator.o util.o sprsinterp.o
 
 TRTEST= trtest
 FASTSPHERE= fastsphere

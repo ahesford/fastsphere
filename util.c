@@ -78,3 +78,42 @@ int copysh (int deg, complex double *out, int ldo, complex double *in, int ldi) 
 
 	return deg;
 }
+
+/* Binary search to find an interval containing a data point. Return is the
+ * index of the first value greater than or equal to the test value. */
+int interval (double val, double *arr, int n) {
+	int low = 0, high = n, mid;
+
+	while (low < high) {
+		mid = low + ((high - low) / 2);
+
+		if (arr[mid] < val) low = mid + 1;
+		else high = mid;
+	}
+
+	return low;
+}
+
+/* Return the Lagrange interpolation coefficients. */
+int lgpoly (double *vals, double *nd, double sloc, int n) {
+	int i, j;
+	double den;
+
+	for (i = 0; i < n; ++i) {
+		den = vals[i] = 1;
+
+		for (j = 0; j < i; ++j) {
+			vals[i] *= sloc - nd[j];
+			den *= nd[i] - nd[j];
+		}
+
+		for (j = i + 1; j < n; ++j) {
+			vals[i] *= sloc - nd[j];
+			den *= nd[i] - nd[j];
+		}
+
+		vals[i] /= den;
+	}
+
+	return n;
+}

@@ -3,6 +3,7 @@
 
 #include <complex.h>
 
+#include "sprsinterp.h"
 #include "fastsphere.h"
 #include "translator.h"
 #include "fsht.h"
@@ -17,8 +18,8 @@ enum GMRES_INFO { GEX = 0, GMV, GLP, GRP, GDP };
 int sprflpw (complex double *, spscat *, int, shdata *);
 int sptrans (complex double *, complex double *, int, trdesc *, shdata *);
 int scatmat (complex double *, complex double *, spscat *, int,
-		sptype *, trdesc *, shdata *, shdata *);
+		sptype *, trdesc *, shdata *, shdata *, sprow *);
 int itsolve (complex double *, complex double *, spscat *, int,
-		sptype *, trdesc *, shdata *, shdata *, itconf *);
+		sptype *, trdesc *, shdata *, shdata *, itconf *, sprow *);
 
 #endif /* __SCATMAT_H_ */
