@@ -9,6 +9,8 @@
 
 #include "sprsinterp.h"
 
+int writebvec (FILE *, complex double *, int, int);
+
 /* Compute the required order of the root sphere. */
 int rootorder (spscat *slist, int nsph, complex double bgk) {
 	int i, l;
@@ -131,8 +133,10 @@ int fartonear (complex double *vout, complex double *vin, spscat *slist, int nsp
 		}
 		
 		/* Anterpolate the result. */
+		ffsht (buf, shin);
 		memset (vp, 0, ntout * sizeof(complex double));
-		smvtmpy (vp, ntin, imat, buf);
+		copysh (shout->deg, vp, shout->nphi, buf, shin->nphi);
+		ifsht (vp, shout);
 	}
 
 	free (buf);

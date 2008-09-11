@@ -162,7 +162,7 @@ int main (int argc, char **argv) {
 	/* Build the interpolation matrix for radiation patterns. */
 	n = shroot.ntheta * shroot.nphi + 2;
 	imat = malloc (n * sizeof(sprow));
-	intpmat (imat, &shroot, &shtr, 4);
+	intpmat (imat, &shroot, &shtr, 6);
 
 	itsolve (sol, rhs, slist, nspheres, &bgspt, trans, &shtr, &shroot, &itc, imat);
 	fprintf (stderr, "Iteration complete, computing radiation pattern\n");
