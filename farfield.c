@@ -7,10 +7,6 @@
 #include "farfield.h"
 #include "util.h"
 
-#include "sprsinterp.h"
-
-int writebvec (FILE *, complex double *, int, int);
-
 /* Compute the required order of the root sphere. */
 int rootorder (spscat *slist, int nsph, complex double bgk) {
 	int i, l;
@@ -33,8 +29,8 @@ int rootorder (spscat *slist, int nsph, complex double bgk) {
 
 /* Shift and combine outgoing plane waves from small spheres into one large
  * plane-wave pattern. */
-int neartofar (complex double *vout, complex double *vin, spscat *slist, int nsph,
-		complex double bgk, shdata *shout, shdata *shin, sprow *imat) {
+int neartofar (complex double *vout, complex double *vin, spscat *slist,
+		int nsph, complex double bgk, shdata *shout, shdata *shin) {
 	int ntin, ntout;
 	double dphi;
 
@@ -56,9 +52,12 @@ int neartofar (complex double *vout, complex double *vin, spscat *slist, int nsp
 	for (i = 0; i < nsph; ++i) {
 		vp = vin + i * ntin;
 
-		/* Interpolate the spherical scattered field. The output
-		 * buffer is first zeroed by the multiplication. */
-		smvmpy (buf, ntout, imat, vp);
+		/* Interpolate the spherical scattered field. */
+		ffsht (vp, shin);
+		memset (buf, 0, ntout * sizeof(complex double));
+		copysh (shin->deg, buf, shout->nphi, vp, shin->nphi);
+		ifsht (vp, shin);
+		ifsht (buf, shout);
 
 		/* Add the phase-shifted sphere pattern to the total pattern. */
 		for (j = 0, l = 0; j < shout->ntheta; ++j) {
@@ -96,8 +95,8 @@ int neartofar (complex double *vout, complex double *vin, spscat *slist, int nsp
 
 /* Anterpolate and distribute an incoming field to smaller spheres. Input is
  * a plane-wave expansion, output is plane-wave expansion. */
-int fartonear (complex double *vout, complex double *vin, spscat *slist, int nsph,
-		complex double bgk, shdata *shout, shdata *shin, sprow *imat) {
+int fartonear (complex double *vout, complex double *vin, spscat *slist,
+		int nsph, complex double bgk, shdata *shout, shdata *shin) {
 	int ntin, ntout;
 	double dphi;
 
@@ -132,7 +131,8 @@ int fartonear (complex double *vout, complex double *vin, spscat *slist, int nsp
 			}
 		}
 		
-		/* Anterpolate the result. */
+		/* The poles don't contribute to the forward SHT, and they
+		 * are re-evaluated by the inverse SHT. Don't compute them. */
 		ffsht (buf, shin);
 		memset (vp, 0, ntout * sizeof(complex double));
 		copysh (shout->deg, vp, shout->nphi, buf, shin->nphi);

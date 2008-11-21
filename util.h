@@ -24,8 +24,4 @@ int legpoly (int, double, double *);
 complex double buildkvec (double, double);
 
 int copysh (int, complex double *, int, complex double *, int);
-
-int interval (double, double *, int);
-
-int lgpoly (double *, double *, double, int);
 #endif /* __UTIL_H_ */

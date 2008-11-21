@@ -16,7 +16,6 @@
 #include "scatmat.h"
 #include "farfield.h"
 #include "spreflect.h"
-#include "sprsinterp.h"
 
 void usage () {
 	fprintf (stderr, "USAGE: fastsphere [-h] [-i input] [-o output] [-r rhsfile]\n");
@@ -67,7 +66,6 @@ int main (int argc, char **argv) {
 	itconf itc;
 	trdesc *trans, trinc;
 	double rsrc;
-	sprow *imat;
 
 	complex double *rhs, *sol, *radpat, *sptr;
 
@@ -159,18 +157,13 @@ int main (int argc, char **argv) {
 		fclose (fptr);
 	}
 
-	/* Build the interpolation matrix for radiation patterns. */
-	n = shroot.ntheta * shroot.nphi + 2;
-	imat = malloc (n * sizeof(sprow));
-	intpmat (imat, &shroot, &shtr, 6);
-
-	itsolve (sol, rhs, slist, nspheres, &bgspt, trans, &shtr, &shroot, &itc, imat);
+	itsolve (sol, rhs, slist, nspheres, &bgspt, trans, &shtr, &shroot, &itc);
 	fprintf (stderr, "Iteration complete, computing radiation pattern\n");
 
 	fflush (stdout);
 
 	/* Compute the far-field pattern of the internal spheres. */
-	neartofar (radpat, sol, slist, nspheres, bgspt.k, &shroot, &shtr, imat);
+	neartofar (radpat, sol, slist, nspheres, bgspt.k, &shroot, &shtr);
 
 	/* Convert the boundary fields to SH coefficients for reflections. */
 	ffsht (radpat, &shroot);
