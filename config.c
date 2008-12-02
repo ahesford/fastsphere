@@ -54,6 +54,7 @@ int readcfg (FILE *cfgin, int *nspheres, int *nsptype, sptype **spt, sptype *enc
 	char buf[BUFLEN];
 	sptype *stptr;
 	spscat *ssptr;
+	double rb, ib;
 
 	if (!nextline (cfgin, buf, BUFLEN)) return 0;
 
@@ -67,18 +68,33 @@ int readcfg (FILE *cfgin, int *nspheres, int *nsptype, sptype **spt, sptype *enc
 	if (!nextline (cfgin, buf, BUFLEN)) return 0;
 	
 	/* The excitation frequency and source location. */
-	if (sscanf (buf, "%lf %lf %lf %lf", &(exct->f), exct->cen,
-				exct->cen + 1, exct->cen + 2) != 4)
-		return 0;
+	if (sscanf (buf, "%lf %d", &(exct->f), &(exct->npw)) != 2) return 0;
 
 	/* Convert excitation frequency into Hz. */
 	exct->f *= 1e6;
-	
-	/* Convert excitation location into wavelengths. */
-	exct->cen[0] *= exct->f / bg->cabs;
-	exct->cen[1] *= exct->f / bg->cabs;
-	exct->cen[2] *= exct->f / bg->cabs;
 
+	/* Allocate space for plane wave magnitudes and frequencies. */
+	exct->mag = malloc (exct->npw * sizeof(complex double));
+	exct->theta = malloc (2 * exct->npw * sizeof(double));
+	exct->phi = exct->theta + exct->npw;
+
+	/* Read the excitation parameters. */
+	for (i = 0; i < exct->npw; ++i) {
+		if (!nextline (cfgin, buf, BUFLEN)) return 0;
+
+		/* Excitation parameters. */
+		if (sscanf (buf, "%lf %lf %lf %lf", &rb, &ib,
+					exct->theta + i, exct->phi + i) != 4)
+			return 0;
+
+		/* Assemble the magnitude. */
+		(exct->mag)[i] = rb + I * ib;
+
+		/* Convert the angles to radians. */
+		(exct->theta)[i] *= M_PI / 180.0;
+		(exct->phi)[i] *= M_PI / 180.0;
+	}
+	
 	if (!nextline (cfgin, buf, BUFLEN)) return 0;
 
 	/* The number of iterations, restart and solver tolerance. */

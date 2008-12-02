@@ -37,7 +37,9 @@ typedef struct {
 
 typedef struct {
 	double f;	/* Excitation frequency. */
-	double cen[3];	/* Excitation location. */
+	int npw;	/* Number of plane waves. */
+	complex double *mag;	/* Complex magnitude. */
+	double *theta, *phi;	/* Angular positions. */
 } exctparm;
 
 #endif /* __FASTSPHERE_H_ */

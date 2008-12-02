@@ -18,11 +18,12 @@
 #include "spreflect.h"
 
 void usage () {
-	fprintf (stderr, "USAGE: fastsphere [-h] [-i input] [-o output] [-r rhsfile]\n");
+	fprintf (stderr, "USAGE: fastsphere [-h] [-m dist] [-i input] [-o output] [-r rhsfile]\n");
 	fprintf (stderr, "\t-h\tPrint this message and exit\n");
 	fprintf (stderr, "\t-i\tSpecify configuration file path (default: stdin)\n");
 	fprintf (stderr, "\t-o\tSpecify output radiation file path (default: stdout)\n");
 	fprintf (stderr, "\t-r\tSpecify output RHS file path (default: none)\n");
+	fprintf (stderr, "\t-m\tSpecify measurement distance (default: infinite)\n");
 
 	exit (EXIT_FAILURE);
 }
@@ -57,22 +58,22 @@ int writebvec (FILE *out, complex double *vec, int n, int m) {
 }
 
 int main (int argc, char **argv) {
-	int nspheres, nsptype, n, nterm;
+	int nspheres, nsptype, n, nterm, i;
 	sptype *sparms, bgspt;
 	spscat *slist;
 	bgtype bg;
 	exctparm exct;
 	shdata shtr, shroot;
 	itconf itc;
-	trdesc *trans, trinc;
-	double rsrc;
+	trdesc *trans;
+	double mslen = -1;
 
 	complex double *rhs, *sol, *radpat, *sptr;
 
 	FILE *fptr = NULL;
 	char *inname = NULL, *outname = NULL, *rhsname = NULL, ch;
 
-	while ((ch = getopt (argc, argv, "hi:o:r:")) != -1) {
+	while ((ch = getopt (argc, argv, "hi:o:r:m:")) != -1) {
 		switch (ch) {
 		case 'i':
 			inname = optarg;
@@ -82,6 +83,9 @@ int main (int argc, char **argv) {
 			break;
 		case 'r':
 			rhsname = optarg;
+			break;
+		case 'm':
+			mslen = atof (optarg);
 			break;
 		case 'h': default:
 			usage ();
@@ -126,26 +130,15 @@ int main (int argc, char **argv) {
 	radpat = rhs + n;
 	sptr = sol + n;
 
-	trinc.trunc = 2 * shroot.deg - 1;
-	trinc.type = TRPLANE;
+	/* Build the RHS vector consisting of multiple plane waves. */
+	for (i = 0; i < exct.npw; ++i)
+		shincident (shroot.deg, radpat, shroot.nphi,
+				(exct.mag)[i], (exct.theta)[i], (exct.phi)[i]);
 
-	trinc.sdir[0] = -exct.cen[0];
-	trinc.sdir[0] = -exct.cen[0];
-	trinc.sdir[0] = -exct.cen[0];
-
-	rsrc = sqrt (DVDOT(trinc.sdir,trinc.sdir));
-	trinc.sdir[0] /= rsrc;
-	trinc.sdir[1] /= rsrc;
-	trinc.sdir[2] /= rsrc;
-
-	trinc.kr = bg.k * rsrc;
-	trinc.trdata = radpat;
-
-	/* The plane-wave incident field. */
-	translator (&trinc, shroot.ntheta, shroot.nphi, shroot.theta);
+	/* Include the appropriate scaling factor. */
+	shscale (radpat, &shroot, -1);
 
 	/* Compute the transmitted component of the incident field. */
-	ffsht (radpat, &shroot);
 	spreflect (radpat, radpat, bgspt.transmit, shroot.deg, shroot.nphi, 0, 1);
 	ifsht (radpat, &shroot);
 
@@ -175,6 +168,17 @@ int main (int argc, char **argv) {
 	/* Now add in the reflected incident wave coefficients. */
 	spreflect (radpat, sptr, bgspt.reflect + shroot.deg, shroot.deg, shroot.nphi, 1, 1);
 
+	/* Measure at a finite distance, if desired. */
+	if (mslen > 0) {
+		/* Scale the measurement distance to wavelengths. */
+		mslen *= exct.f / bg.cabs;
+		fprintf (stderr, "Computing scattered field at radius %g wavelengths\n", mslen);
+		/* Scale the SH coefficients appropriately. */
+		shscale (radpat, &shroot, 1);
+		/* Now include the radial factor in the SH coefficients. */
+		shradial (shroot.deg, radpat, shroot.nphi, bg.k, mslen);
+	}
+
 	ifsht (radpat, &shroot);
 
 	if (!outname) fptr = stdout;
@@ -189,6 +193,9 @@ int main (int argc, char **argv) {
 	free (rhs);
 	fshtfree (&shroot);
 	fshtfree (&shtr);
+
+	free (exct.mag);
+	free (exct.theta);
 
 #ifdef _OPENMP
 	fftw_cleanup_threads ();
