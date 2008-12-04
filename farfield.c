@@ -8,7 +8,7 @@
 #include "util.h"
 
 /* Compute the required order of the root sphere. */
-int rootorder (spscat *slist, int nsph, bgtype *bg) {
+int rootorder (spscat *slist, int nsph, complex double bgk) {
 	int i, l;
 	double rad = 0.0, clen;
 
@@ -22,34 +22,15 @@ int rootorder (spscat *slist, int nsph, bgtype *bg) {
 	}
 
 	/* Use the excess bandwidth formula to find the number of terms. */
-	l = exband (bg->k * rad, 6);
+	l = exband (bgk * rad, 6);
 
 	return l;
 }
 
-void expnsh (complex double *out, complex double *in, shdata *shout, shdata *shin) {
-	int i, j, offo, offi;
-
-	/* Blank the output buffer. */
-	memset (out, 0, shout->ntheta * shout->nphi * sizeof(complex double));
-
-	/* Copy the spherical harmonic coefficients into the right place. */
-	for (i = 0; i < shin->deg; ++i) {
-		offo = i * shout->nphi;
-		offi = i * shin->nphi;
-		/* Copy the zero-order coefficients. */
-		out[offo] = in[offi];
-
-		/* Copy the other coefficients. */
-		for (j = 1; j <= i; ++j) {
-			out[offo + j] = in[offi + j];
-			out[offo + shout->nphi - j] = in[offi + shin->nphi - j];
-		}
-	}
-}
-
-int farfield (complex double *vout, complex double *vin, spscat *slist,
-		int nsph, bgtype *bg, shdata *shout, shdata *shin) {
+/* Shift and combine outgoing plane waves from small spheres into one large
+ * plane-wave pattern. */
+int neartofar (complex double *vout, complex double *vin, spscat *slist,
+		int nsph, complex double bgk, shdata *shout, shdata *shin) {
 	int ntin, ntout;
 	double dphi;
 
@@ -63,7 +44,7 @@ int farfield (complex double *vout, complex double *vin, spscat *slist,
 {
 	int i, j, k, l;
 	double s[3], sdc, sth, phi;
-	complex double *buf, *vp, sfact;
+	complex double *vp, sfact, *buf;
 
 	buf = malloc (ntout * sizeof(complex double));
 
@@ -71,10 +52,12 @@ int farfield (complex double *vout, complex double *vin, spscat *slist,
 	for (i = 0; i < nsph; ++i) {
 		vp = vin + i * ntin;
 
-		ffsht (vp, shin);	/* SH coefficients for the sphere. */
-		expnsh (buf, vp, shout, shin); /* Expand for interpolation. */
-		ifsht (vp, shin);	/* Back to angular samples. */
-		ifsht (buf, shout);	/* Interpolated angular samples. */
+		/* Interpolate the spherical scattered field. */
+		ffsht (vp, shin);
+		memset (buf, 0, ntout * sizeof(complex double));
+		copysh (shin->deg, buf, shout->nphi, vp, shin->nphi);
+		ifsht (vp, shin);
+		ifsht (buf, shout);
 
 		/* Add the phase-shifted sphere pattern to the total pattern. */
 		for (j = 0, l = 0; j < shout->ntheta; ++j) {
@@ -87,20 +70,73 @@ int farfield (complex double *vout, complex double *vin, spscat *slist,
 
 				/* Compute the phase-shift factor. */
 				sdc = DVDOT(s, slist[i].cen);
-				sfact = cexp (-I * bg->k * sdc);
+				sfact = cexp (-I * bgk * sdc);
 				/* Augment the pattern, with synchronization. */
 #pragma omp critical(outrad)
 				vout[l] += sfact * buf[l];
 			}
 		}
 
-		/* Add in the polar contributions as well. */
+		/* Augment the poles with synchronization. The offset should
+		 * be properly computed from the for loop. */
 		l = shout->ntheta * shout->nphi;
-#pragma omp critical(polrad)
+#pragma omp critical(outrad)
 {
-		vout[l] += buf[l] * cexp (-I * bg->k * slist[i].cen[2]);
-		vout[l + 1] += buf[l + 1] * cexp (I * bg->k * slist[i].cen[2]);
+		vout[l] += cexp(-I * bgk * slist[i].cen[2]) * buf[l];
+		vout[l + 1] += cexp (I * bgk * slist[i].cen[2]) * buf[l + 1];
 }
+	}
+
+	free (buf);
+}
+
+	return ntout;
+}
+
+/* Anterpolate and distribute an incoming field to smaller spheres. Input is
+ * a plane-wave expansion, output is plane-wave expansion. */
+int fartonear (complex double *vout, complex double *vin, spscat *slist,
+		int nsph, complex double bgk, shdata *shout, shdata *shin) {
+	int ntin, ntout;
+	double dphi;
+
+	ntin = shin->ntheta * shin->nphi + 2;
+	ntout = shout->ntheta * shout->nphi + 2;
+	dphi = 2 * M_PI / MAX(shin->nphi, 1);
+
+#pragma omp parallel default(shared)
+{
+	int i, j, k, l;
+	double s[3], sdc, sth, phi;
+	complex double *vp, *buf;
+
+	buf = malloc (ntin * sizeof(complex double));
+
+#pragma omp for
+	for (i = 0; i < nsph; ++i) {
+		vp = vout + i * ntout;
+
+		/* Shift the phase of the sphere pattern. */
+		for (j = 0, l = 0; j < shin->ntheta; ++j) {
+			s[2] = cos((shin->theta)[j]);
+			sth = sin((shin->theta)[j]);
+			for (k = 0; k < shin->nphi; ++k, ++l) {
+				phi = k * dphi;
+				s[0] = sth * cos(phi);
+				s[1] = sth * sin(phi);
+
+				/* Compute the phase-shift factor. */
+				sdc = DVDOT(s, slist[i].cen);
+				buf[l] = vin[l] * cexp (I * bgk * sdc);
+			}
+		}
+		
+		/* The poles don't contribute to the forward SHT, and they
+		 * are re-evaluated by the inverse SHT. Don't compute them. */
+		ffsht (buf, shin);
+		memset (vp, 0, ntout * sizeof(complex double));
+		copysh (shout->deg, vp, shout->nphi, buf, shin->nphi);
+		ifsht (vp, shout);
 	}
 
 	free (buf);

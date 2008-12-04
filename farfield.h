@@ -6,9 +6,10 @@
 #include "fastsphere.h"
 #include "fsht.h"
 
-int rootorder (spscat *, int, bgtype *);
-void expnsh (complex double *, complex double *, shdata *, shdata *);
-int farfield (complex double *, complex double *, spscat *, int,
-		bgtype *, shdata *, shdata *);
+int rootorder (spscat *, int, complex double);
+int neartofar (complex double *, complex double *, spscat *, int,
+		complex double, shdata *, shdata *);
+int fartonear (complex double *, complex double *, spscat *, int,
+		complex double, shdata *, shdata *);
 
 #endif /* __FARFIELD_H_ */

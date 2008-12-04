@@ -22,4 +22,8 @@ int exband (complex double, double);
 int legpoly (int, double, double *);
 
 complex double buildkvec (double, double);
+
+int copysh (int, complex double *, int, complex double *, int);
+int shradial (int, complex double *, int, complex double, double);
+int shincident (int, complex double *, int, complex double, double, double);
 #endif /* __UTIL_H_ */

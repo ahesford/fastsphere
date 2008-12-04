@@ -13,11 +13,12 @@
 #include "farfield.h"
 
 void usage () {
-	fprintf (stderr, "USAGE: fastsphere [-h] [-i input] [-o output] [-r rhsfile]\n");
+	fprintf (stderr, "USAGE: fastsphere [-h] [-m dist] [-i input] [-o output] [-r rhsfile]\n");
 	fprintf (stderr, "\t-h\tPrint this message and exit\n");
 	fprintf (stderr, "\t-i\tSpecify configuration file path (default: stdin)\n");
 	fprintf (stderr, "\t-o\tSpecify output radiation file path (default: stdout)\n");
 	fprintf (stderr, "\t-r\tSpecify output RHS file path (default: none)\n");
+	fprintf (stderr, "\t-m\tSpecify measurement distance (default: infinite)\n");
 
 	exit (EXIT_FAILURE);
 }
@@ -52,7 +53,7 @@ int writebvec (FILE *out, complex double *vec, int n, int m) {
 }
 
 int main (int argc, char **argv) {
-	int nspheres, nsptype, n, i, nterm, trunc;
+	int nspheres, nsptype, n, nterm, i;
 	sptype *sparms;
 	spscat *slist;
 	bgtype bg;
@@ -62,10 +63,12 @@ int main (int argc, char **argv) {
 	trdesc *trans;
 	complex double *rhs, *sol, *radpat;
 
+	double mslen = -1;
+
 	FILE *fptr = NULL;
 	char *inname = NULL, *outname = NULL, *rhsname = NULL, ch;
 
-	while ((ch = getopt (argc, argv, "hi:o:r:")) != -1) {
+	while ((ch = getopt (argc, argv, "hi:o:r:m:")) != -1) {
 		switch (ch) {
 		case 'i':
 			inname = optarg;
@@ -75,6 +78,9 @@ int main (int argc, char **argv) {
 			break;
 		case 'r':
 			rhsname = optarg;
+			break;
+		case 'm':
+			mslen = atof (optarg);
 			break;
 		case 'h': default:
 			usage ();
@@ -91,9 +97,9 @@ int main (int argc, char **argv) {
 	trans = sphbldfmm (slist, nspheres, &bg, &shtr);
 	fprintf (stderr, "Built FMM translators for all spheres\n");
 
-	n = rootorder (slist, nspheres, &bg);
-	n = 2 * n - 1; /* The number of angular samples (in each direction). */
-	fshtinit (&shroot, shtr.deg, n, 2 * n);
+	i = rootorder (slist, nspheres, bg.k);
+	n = 2 * i - 1; /* The number of angular samples (in each direction). */
+	fshtinit (&shroot, i, n, 2 * n);
 	fprintf (stderr, "Built spherical harmonic data for far-field\n");
 
 	nterm = shtr.ntheta * shtr.nphi + 2;
@@ -101,35 +107,19 @@ int main (int argc, char **argv) {
 	rhs = calloc (2 * n, sizeof(complex double));
 	sol = rhs + n;
 	
-	/* Build a translator from the source location to each sphere.
-	 * This is the incoming incident field for each sphere. */
-	trunc = 2 * shtr.deg - 1;
+	n = shroot.ntheta * shroot.nphi + 2;
+	radpat = calloc (n, sizeof(complex double));
 
-#pragma omp parallel private(i) default(shared)
-{
-	/* These variables are private. */
-	double rsrc;
-	trdesc trinc;
+	/* Build the RHS vector consisting of multiple plane waves. */
+	for (i = 0; i < exct.npw; ++i)
+		shincident (shroot.deg, radpat, shroot.nphi,
+				(exct.mag)[i], (exct.theta)[i], (exct.phi)[i]);
 
-	trinc.trunc = trunc;
-	trinc.type = TRPLANE;
+	/* Include the appropriate scaling factor. */
+	shscale (radpat, &shroot, -1);
+	ifsht (radpat, &shroot);
 
-	for (i = 0; i < nspheres; ++i) {
-		trinc.sdir[0] = slist[i].cen[0] - exct.cen[0];
-		trinc.sdir[1] = slist[i].cen[1] - exct.cen[1];
-		trinc.sdir[2] = slist[i].cen[2] - exct.cen[2];
-
-		rsrc = sqrt (DVDOT(trinc.sdir,trinc.sdir));
-		trinc.sdir[0] /= rsrc;
-		trinc.sdir[1] /= rsrc;
-		trinc.sdir[2] /= rsrc;
-
-		trinc.kr = bg.k * rsrc;
-		trinc.trdata = rhs + i * nterm;
-
-		translator (&trinc, shtr.ntheta, shtr.nphi, shtr.theta);
-	}
-}
+	fartonear (rhs, radpat, slist, nspheres, bg.k, &shtr, &shroot);
 
 	/* Convert the incoming incident field to the reflected incident
 	 * field, which is the RHS for this problem. */
@@ -148,9 +138,16 @@ int main (int argc, char **argv) {
 	fflush (stdout);
 
 	/* Compute the far-field radiation pattern of the object. */
-	n = shroot.ntheta * shroot.nphi + 2;
-	radpat = malloc (n * sizeof(complex double));
-	farfield (radpat, sol, slist, nspheres, &bg, &shroot, &shtr);
+	neartofar (radpat, sol, slist, nspheres, bg.k, &shroot, &shtr);
+
+	if (mslen > 0) {
+		mslen *= exct.f / bg.cabs;
+		fprintf (stderr, "Computing scattered field at radius %g wavelengths\n", mslen);
+		ffsht (radpat, &shroot);
+		shscale (radpat, &shroot, 1);
+		shradial (shroot.deg, radpat, shroot.nphi, bg.k, mslen);
+		ifsht (radpat, &shroot);
+	}
 
 	if (!outname) fptr = stdout;
 	else fptr = critopen (outname, "w");
