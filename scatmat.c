@@ -73,20 +73,15 @@ int sptrans (complex double *vout, complex double *vin,
 }
 
 /* Compute the MVP between the scattering matrix and a specified vector. */
-int scatmat (complex double *vout, complex double *vin, spscat *spl, int nsph,
-		sptype *bgspt, trdesc *trans, shdata *shtr, shdata *bgtr) {
-	int nterm, n, i, ntbg;
-	complex double *voptr, *viptr;
+int scatmat (complex double *vout, complex double *vin, spscat *spl,
+		int nsph, trdesc *trans, shdata *shtr) {
+	int nterm, n, i;
 
 	nterm = shtr->ntheta * shtr->nphi + 2;
-	ntbg = bgtr->ntheta * bgtr->nphi + 2;
 	n = nterm * nsph;
 
-	voptr = vout + n;
-	viptr = vin + n;
-
 	/* Initialize the output bufer. */
-	fartonear (vout, viptr, spl, nsph, bgspt->k, shtr, bgtr);
+	memset (vout, 0, n * sizeof(complex double));
 
 	/* Compute the spherical translations. */
 	sptrans (vout, vin, nsph, trans, shtr);
@@ -98,29 +93,17 @@ int scatmat (complex double *vout, complex double *vin, spscat *spl, int nsph,
 #pragma omp parallel for private(i) default(shared)
 	for (i = 0; i < n; ++i) vout[i] = vin[i] - vout[i];
 
-	/* Compute the far-field pattern of the internal spheres. */
-	neartofar (voptr, vin, spl, nsph, bgspt->k, bgtr, shtr);
-
-	/* Compute the reflection of the far-field pattern. */
-	ffsht (voptr, bgtr);
-	spreflect (voptr, voptr, bgspt->reflect, bgtr->deg, bgtr->nphi, 0, 1);
-	ifsht (voptr, bgtr);
-
-	/* Add the contribution from the standing-wave pattern. */
-#pragma omp parallel for private(i) default(shared)
-	for (i = 0; i < ntbg; ++i) voptr[i] += viptr[i];
-
 	return nsph;
 }
 
 int itsolve (complex double *sol, complex double *rhs, spscat *spl, int nsph,
-		sptype *bgspt, trdesc *trans, shdata *shtr, shdata *bgtr, itconf *itc) {
+		trdesc *trans, shdata *shtr, itconf *itc) {
 	int icntl[7], irc[5], lwork, info[3], n, nterm, one = 1;
 	double rinfo[2], cntl[5];
 	complex double *zwork, *tx, *ty, *tz, zone = 1.0, zzero = 0.0;
 
 	nterm = shtr->ntheta * shtr->nphi + 2;
-	n = nterm * nsph + bgtr->ntheta * bgtr->nphi + 2;
+	n = nterm * nsph;
 
 	lwork = itc->restart * itc->restart + itc->restart * (n + 5) + 5 * n + 2;
 	zwork = calloc (lwork, sizeof(complex double));
@@ -130,13 +113,13 @@ int itsolve (complex double *sol, complex double *rhs, spscat *spl, int nsph,
 	icntl[2] = 6; /* Print information to stdout. */
 	icntl[3] = 0; /* No preconditioner. */
 	icntl[4] = 0; /* Use MGS for orthogonalization. */
-	icntl[5] = 1; /* The incident field is the initial guess. */
+	icntl[5] = 1; /* Specify an initial guess. */
 	icntl[6] = itc->iter; /* Maximum iteration count. */
 
 	cntl[0] = itc->eps; /* Convergence tolerance. */
 
-	/* The initial guess: the RHS. */
-	memcpy (zwork, rhs, n * sizeof(complex double));
+	/* The initial guess: the previous solution. */
+	memcpy (zwork, sol, n * sizeof(complex double));
 	/* The unpreconditioned RHS. */
 	memcpy (zwork + n, rhs, n * sizeof(complex double));
 
@@ -150,7 +133,7 @@ int itsolve (complex double *sol, complex double *rhs, spscat *spl, int nsph,
 		case GMV:
 			tx = zwork + irc[1] - 1;
 			ty = zwork + irc[3] - 1;
-			scatmat (ty, tx, spl, nsph, bgspt, trans, shtr, bgtr);
+			scatmat (ty, tx, spl, nsph, trans, shtr);
 			break;
 		case GDP:
 			tx = zwork + irc[1] - 1;
