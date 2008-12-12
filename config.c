@@ -48,7 +48,7 @@ int nextline (FILE *input, char *buf, int maxlen) {
 	return 0;
 }
 
-int readcfg (FILE *cfgin, int *nspheres, int *nsptype, sptype **spt,
+int readcfg (FILE *cfgin, int *nspheres, int *nsptype, sptype **spt, sptype *encl,
 		spscat **spl, bgtype *bg, exctparm *exct, itconf *itc) {
 	int i, tp;
 	double rb, ib;
@@ -102,6 +102,24 @@ int readcfg (FILE *cfgin, int *nspheres, int *nsptype, sptype **spt,
 		return 0;
 
 	if (!nextline (cfgin, buf, BUFLEN)) return 0;
+
+	/* Read about an enclosing sphere, if there is one. */
+	if (encl != NULL) {
+		/* The enclosing sphere, if there is any. */
+		if (sscanf (buf, "%lf %lf %lf %lf", &(encl->r), &(encl->c),
+					&(encl->alpha), &(encl->rho)) != 4 && encl->r > 0)
+			return 0;
+		
+		encl->r *= exct->f / bg->cabs; /* Radius to wavelengths. */
+		encl->c /= bg->cabs; /* Sound speed to relative sound speed. */
+		encl->alpha *= 1e-4 * bg->cabs; /* Attenuation to dB per wavelength. */
+		encl->rho /= bg->rho0; /* Density to relative density. */
+		
+		/* Build the wave number for the enclosing sphere. */
+		encl->k = buildkvec (encl->c, encl->alpha);
+		
+		if (!nextline (cfgin, buf, BUFLEN)) return 0;
+	}
 
 	/* The number of spheres, and the number of unique sphere types. */
 	if (sscanf (buf, "%d %d", nspheres, nsptype) != 2) return 0;

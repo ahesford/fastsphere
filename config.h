@@ -8,8 +8,8 @@
 
 int nextline (FILE *, char *, int);
 
-int readcfg (FILE *, int *, int *, sptype **, spscat **,
-		bgtype *, exctparm *, itconf *);
+int readcfg (FILE *, int *, int *, sptype **, sptype *,
+		spscat **, bgtype *, exctparm *, itconf *);
 
 int setspht (sptype *, int, int, int);
 int clrspht (sptype *, int);

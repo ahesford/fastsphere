@@ -12,7 +12,7 @@ typedef struct {
 	complex double k;
 
 	/* Reflection coefficients for spherical harmonics. */
-	complex double *reflect;
+	complex double *reflect, *transmit;
 
 	double r; 	/* Radius in wavelengths. */
 	double c;	/* Sound speed relative to background. */

@@ -7,6 +7,7 @@
 #include "translator.h"
 #include "scatmat.h"
 #include "fsht.h"
+#include "farfield.h"
 
 void drivezgmres_ (int *, int *, int *, int *, complex double *,
 		int *, int *, double *, int *, double *);
@@ -14,7 +15,8 @@ void initzgmres_ (int *, double *);
 void zgemv_ (char *, int *, int *, complex double *, complex double *, int *,
 		complex double *, int *, complex double *, complex double *, int *);
 
-int buildrhs (complex double *rhs, spscat *spl, int nsph, shdata *shtr) {
+/* Reflect incoming plane waves from the surfaces of all spheres. */
+int sprflpw (complex double *rhs, spscat *spl, int nsph, shdata *shtr) {
 	int i, nterm;
 	complex double *vptr;
 
@@ -26,31 +28,27 @@ int buildrhs (complex double *rhs, spscat *spl, int nsph, shdata *shtr) {
 
 		/* Multiply by the reflection coefficient in SH space. */
 		ffsht (vptr, shtr);
-		spreflect (vptr, vptr, (spl + i)->spdesc->reflect, shtr->deg, shtr->nphi);
+		spreflect (vptr, vptr, (spl + i)->spdesc->reflect, shtr->deg, shtr->nphi, 0, 1);
 		ifsht (vptr, shtr);
 	}
 
 	return nsph;
 }
 
-int scatmat (complex double *vout, complex double *vin, spscat *spl,
+/* Compute translations between all spheres. Augments the output vector, does
+ * not overwrite it. */
+int sptrans (complex double *vout, complex double *vin,
 		int nsph, trdesc *trans, shdata *shtr) {
-	int off, k, nterm, n, nsq;
-	complex double *voptr, *viptr;
+	int nterm, nsq;
 
 	nterm = shtr->ntheta * shtr->nphi + 2;
-	n = nterm * nsph;
 	nsq = nsph * nsph;
 
-	/* Zero out the output buffer. */
-	memset (vout, 0, n * sizeof(complex double));
-
 	/* Perform the translations. */
-#pragma omp parallel private(off,k,voptr,viptr) default(shared)
+#pragma omp parallel default(shared)
 {
-	int i, j;
-
-	/* Buffer for doing in-place spherical harmonic translations. */
+	complex double *voptr, *viptr;
+	int i, j, off, k;
 
 #pragma omp for
 	for (off = 0; off < nsq; ++off) {
@@ -71,21 +69,29 @@ int scatmat (complex double *vout, complex double *vin, spscat *spl,
 	}
 }
 
-#pragma omp parallel for private(off, k,voptr) default(shared)
-	for (off = 0; off < nsph; ++off) {
-		voptr = vout + off * nterm;
+	return nsph;
+}
 
-		/* Convert plane-wave translations into harmonics. */
-		ffsht (voptr, shtr);
-		/* Apply the reflection coefficient in SH space. */
-		spreflect (voptr, voptr, (spl + off)->spdesc->reflect, shtr->deg, shtr->nphi);
-		/* Take the reflections back to plane-waves. */
-		ifsht (voptr, shtr);
-	}
-	
+/* Compute the MVP between the scattering matrix and a specified vector. */
+int scatmat (complex double *vout, complex double *vin, spscat *spl,
+		int nsph, trdesc *trans, shdata *shtr) {
+	int nterm, n, i;
+
+	nterm = shtr->ntheta * shtr->nphi + 2;
+	n = nterm * nsph;
+
+	/* Initialize the output bufer. */
+	memset (vout, 0, n * sizeof(complex double));
+
+	/* Compute the spherical translations. */
+	sptrans (vout, vin, nsph, trans, shtr);
+
+	/* Compute the reflections of plane waves at sphere surfaces. */
+	sprflpw (vout, spl, nsph, shtr);
+
 	/* Subtract the incoming field from the outgoing field. */
-#pragma omp parallel for private(off) default(shared)
-	for (off = 0; off < n; ++off) vout[off] = vin[off] - vout[off];
+#pragma omp parallel for private(i) default(shared)
+	for (i = 0; i < n; ++i) vout[i] = vin[i] - vout[i];
 
 	return nsph;
 }
@@ -107,13 +113,13 @@ int itsolve (complex double *sol, complex double *rhs, spscat *spl, int nsph,
 	icntl[2] = 6; /* Print information to stdout. */
 	icntl[3] = 0; /* No preconditioner. */
 	icntl[4] = 0; /* Use MGS for orthogonalization. */
-	icntl[5] = 1; /* The incident field is the initial guess. */
+	icntl[5] = 1; /* Specify an initial guess. */
 	icntl[6] = itc->iter; /* Maximum iteration count. */
 
 	cntl[0] = itc->eps; /* Convergence tolerance. */
 
-	/* The initial guess: the RHS. */
-	memcpy (zwork, rhs, n * sizeof(complex double));
+	/* The initial guess: the previous solution. */
+	memcpy (zwork, sol, n * sizeof(complex double));
 	/* The unpreconditioned RHS. */
 	memcpy (zwork + n, rhs, n * sizeof(complex double));
 
