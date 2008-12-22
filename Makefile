@@ -1,5 +1,5 @@
-FF= gfortran-mp-4.2
-CC= gcc-mp-4.2
+FF= gfortran
+CC= /usr/local/bin/gcc
 AR= ar
 RM= rm -f
 
