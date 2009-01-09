@@ -150,7 +150,7 @@ int main (int argc, char **argv) {
 		fprintf (stderr, "Built data for enclosing sphere\n");
 	} else {
 		i = rootorder (slist, nspheres, bg.k);
-		n = i - (i % 2) + 1;
+		n = i + (i % 2) + 1;
 		fshtinit (&shroot, i, n, 2 * n);
 		fprintf (stderr, "Built spherical harmonic data for far-field\n");
 	}

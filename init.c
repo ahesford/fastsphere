@@ -22,7 +22,7 @@ int sphinit (sptype *spt, int nspt, complex double bgk,
 
 	/* Use a default value for angular samples if none specified.
 	 * The default value is forced to be odd. */
-	if (nt < 1) nt = deg - (deg % 2) + 1;
+	if (nt < 1) nt = deg + (deg % 2) + 1;
 
 	/* Initialize the SH transform data. */
 	fshtinit (shtr, deg, nt, 2 * nt);
@@ -50,7 +50,7 @@ int esbdinit (sptype *sbd, complex double bgk, double bgrho, shdata *shtr) {
 	sbd->deg = exband (bgk * sbd->r, 6);
 	/* The number of angular samples in theta is forced to be odd,
 	 * and at least equal to the degree required. */
-	nang = sbd->deg - (sbd->deg % 2) + 1;
+	nang = sbd->deg + (sbd->deg % 2) + 1;
 
 	/* Initialize the SH transform data. */
 	fshtinit (shtr, sbd->deg, nang, 2 * nang);
