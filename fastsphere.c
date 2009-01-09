@@ -111,6 +111,7 @@ int main (int argc, char **argv) {
 			break;
 		case 't':
 			ntheta = atoi (optarg);
+			break;
 		case 'h': default:
 			usage ();
 		}
