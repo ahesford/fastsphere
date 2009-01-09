@@ -43,14 +43,12 @@ int sphinit (sptype *spt, int nspt, complex double bgk,
 	return nspt;
 }
 
-int esbdinit (sptype *sbd, complex double bgk, double bgrho, shdata *shtr) {
-	int nang;
-
+int esbdinit (sptype *sbd, complex double bgk, double bgrho, shdata *shtr, int nang) {
 	/* The spherical harmonic degree for the background sphere. */
 	sbd->deg = exband (bgk * sbd->r, 6);
 	/* The number of angular samples in theta is forced to be odd,
 	 * and at least equal to the degree required. */
-	nang = sbd->deg + (sbd->deg % 2) + 1;
+	nang = MAX(sbd->deg + (sbd->deg % 2) + 1, nang);
 
 	/* Initialize the SH transform data. */
 	fshtinit (shtr, sbd->deg, nang, 2 * nang);

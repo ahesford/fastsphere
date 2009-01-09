@@ -19,13 +19,15 @@
 #include "spreflect.h"
 
 void usage () {
-	fprintf (stderr, "USAGE: fastsphere [-h] [-n bounces] [-m dist] [-i input] [-o output] [-r rhsfile]\n");
+	fprintf (stderr, "USAGE: fastsphere [-h] [-n bounces] [-m dist] [-i input] [-o output] [-r rhsfile] [-t samples]\n");
 	fprintf (stderr, "\t-h\tPrint this message and exit\n");
 	fprintf (stderr, "\t-i\tSpecify configuration file path (default: stdin)\n");
 	fprintf (stderr, "\t-o\tSpecify output radiation file path (default: stdout)\n");
 	fprintf (stderr, "\t-r\tSpecify output RHS file path (default: none)\n");
 	fprintf (stderr, "\t-m\tSpecify measurement distance (default: infinite)\n");
 	fprintf (stderr, "\t-n\tSpecify maximum number of bounces (default: 10)\n");
+	fprintf (stderr, "\t-n\tSpecify maximum number of bounces (default: 10)\n");
+	fprintf (stderr, "\t-t\tSpecify number of theta samples in scattering pattern (default: optimized)\n");
 
 	exit (EXIT_FAILURE);
 }
@@ -74,7 +76,7 @@ int writebvec (FILE *out, complex double *vec, int n, int m) {
 }
 
 int main (int argc, char **argv) {
-	int nspheres, nsptype, n, nterm, i, nbounce = 0, ntbg;
+	int nspheres, nsptype, n, nterm, i, nbounce = 0, ntbg, ntheta = 0;
 	sptype *sparms, bgspt;
 	spscat *slist;
 	bgtype bg;
@@ -90,7 +92,7 @@ int main (int argc, char **argv) {
 	FILE *fptr = NULL;
 	char *inname = NULL, *outname = NULL, *rhsname = NULL, ch;
 
-	while ((ch = getopt (argc, argv, "hi:o:r:m:n:")) != -1) {
+	while ((ch = getopt (argc, argv, "hi:o:r:m:n:t:")) != -1) {
 		switch (ch) {
 		case 'i':
 			inname = optarg;
@@ -107,6 +109,8 @@ int main (int argc, char **argv) {
 		case 'n':
 			nbounce = atoi (optarg);
 			break;
+		case 't':
+			ntheta = atoi (optarg);
 		case 'h': default:
 			usage ();
 		}
@@ -146,12 +150,12 @@ int main (int argc, char **argv) {
 #endif /* _OPENMP */
 
 	if (nbounce > 0) {
-		esbdinit (&bgspt, bg.k, 1.0, &shroot);
+		esbdinit (&bgspt, bg.k, 1.0, &shroot, ntheta);
 		fprintf (stderr, "Built data for enclosing sphere\n");
 	} else {
 		i = rootorder (slist, nspheres, bg.k);
-		n = i + (i % 2) + 1;
-		fshtinit (&shroot, i, n, 2 * n);
+		ntheta = MAX (i + (i % 2) + 1, ntheta);
+		fshtinit (&shroot, i, ntheta, 2 * ntheta);
 		fprintf (stderr, "Built spherical harmonic data for far-field\n");
 	}
 
