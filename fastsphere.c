@@ -176,6 +176,7 @@ int main (int argc, char **argv) {
 	}
 
 	/* Build the RHS vector consisting of multiple plane waves. */
+#pragma omp parallel for private(i) default(shared)
 	for (i = 0; i < exct.npw; ++i)
 		shincident (shroot.deg, finc, shroot.nphi,
 				(exct.mag)[i], (exct.theta)[i], (exct.phi)[i]);

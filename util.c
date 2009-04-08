@@ -140,6 +140,7 @@ int shincident (int deg, complex double *a, int lda,
 		/* Compute the phi variation. */
 		cx = cexp (I * m * phi);
 
+#pragma omp critical(incaug)
 		for (l = m; l < deg; ++l) {
 			off = l * lda;
 			fx = scale[l % 4] * mag * lgvals[l - m];
