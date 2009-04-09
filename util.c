@@ -118,7 +118,10 @@ int shincident (int deg, complex double *a, int lda,
 		complex double mag, double theta, double phi) {
 	double cth, *lgvals;
 	int l, m, dm1, npm, off;
-	complex double scale[4] = { 1, I, -1, -I }, cx, fx;
+	complex double scale[4] = { 1, -I, -1, I }, cx, fx;
+
+	/* The coefficient has a 4 pi factor that must be included. */
+	mag *= 4 * M_PI;
 
 	dm1 = deg - 1;
 	cth = cos(theta);
