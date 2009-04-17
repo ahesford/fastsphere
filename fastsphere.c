@@ -6,9 +6,7 @@
 #include <complex.h>
 #include <math.h>
 
-#ifdef _OPENMP
 #include <omp.h>
-#endif /* _OPENMP */
 
 #include "fastsphere.h"
 #include "config.h"
@@ -17,6 +15,10 @@
 #include "scatmat.h"
 #include "farfield.h"
 #include "spreflect.h"
+
+#ifndef _OPENMP
+int omp_get_max_threads () { return 1; }
+#endif /* _OPENMP */
 
 void usage () {
 	fprintf (stderr, "USAGE: fastsphere [-h] [-n bounces] [-m dist] [-i input] [-o output] [-r rhsfile] [-t samples]\n");
@@ -76,7 +78,7 @@ int writebvec (FILE *out, complex double *vec, int n, int m) {
 }
 
 int main (int argc, char **argv) {
-	int nspheres, nsptype, n, nterm, i, nbounce = 0, ntbg, ntheta = 0;
+	int nspheres, nsptype, n, nterm, i, nbounce = 0, ntbg, ntheta = 0, mxthd = 1;
 	sptype *sparms, bgspt;
 	spscat *slist;
 	bgtype bg;
@@ -120,10 +122,10 @@ int main (int argc, char **argv) {
 	if (!inname) fptr = stdin;
 	else fptr = critopen (inname, "r");
 
-#ifdef _OPENMP
+	mxthd = omp_get_max_threads ();
+
 	/* Only initialize FFTW threads if OpenMP is used. */
-	fftw_init_threads ();
-#endif
+	if (mxthd > 1) fftw_init_threads ();
 
 	if (nbounce > 0)
 		readcfg (fptr, &nspheres, &nsptype, &sparms, &bgspt, &slist, &bg, &exct, &itc);
@@ -140,15 +142,13 @@ int main (int argc, char **argv) {
 	trans = sphbldfmm (slist, nspheres, bgspt.k, &shtr);
 	fprintf (stderr, "Built FMM translators for all spheres\n");
 
-#ifdef _OPENMP
 	/* Multithreaded FFT for the root-level transform, since that is
 	 * a serial point in the code. All other FFTs are serialized, because
 	 * parallelization occurs at the sphere level. */
-#pragma omp parallel default(shared)
-	if (omp_get_thread_num () == 0) n = omp_get_num_threads ();
-	fftw_plan_with_nthreads (n);
-	fprintf (stderr, "Using %d threads for root-level FFT\n", n);
-#endif /* _OPENMP */
+	if (mxthd > 1) {
+		fftw_plan_with_nthreads (mxthd);
+		fprintf (stderr, "Using %d threads for root-level FFT\n", mxthd);
+	}
 
 	if (nbounce > 0) {
 		esbdinit (&bgspt, bg.k, 1.0, &shroot, ntheta);
@@ -297,9 +297,7 @@ int main (int argc, char **argv) {
 	free (radpat);
 	if (nbounce > 0) free (oinc);
 
-#ifdef _OPENMP
-	fftw_cleanup_threads ();
-#endif /* _OPENMP */
+	if (mxthd > 1) fftw_cleanup_threads ();
 
 	fftw_cleanup ();
 
