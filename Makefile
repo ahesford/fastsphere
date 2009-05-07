@@ -3,7 +3,7 @@ CC= /usr/local/bin/gcc
 AR= ar
 RM= rm -f
 
-OPTFLAGS= -fopenmp -O -march=prescott -mtune=prescott
+OPTFLAGS= -fopenmp -O2 -march=nocona -mtune=nocona
 FFLAGS= $(OPTFLAGS)
 CFLAGS= $(OPTFLAGS) -I/opt/local/include
 
