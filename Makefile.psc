@@ -9,8 +9,8 @@ FFLAGS= $(OPTFLAGS)
 CFLAGS= $(OPTFLAGS) -I/usr/local/packages/fftw3/include -I../gsl/include
 
 LFLAGS= $(OPTFLAGS) -nofor-main -L/usr/local/packages/fftw3/lib \
-	-L../gsl/lib -L../spherepack31 -L../gmres -L$(MKLPATH)
-LIBS= -lgmres -lspherepack -lgsl -lgslcblas -lfftw3_threads -lfftw3 \
+	-L../gsl/lib -L../gmres -L$(MKLPATH)
+LIBS= -lgmres -lgsl -lgslcblas -lfftw3_threads -lfftw3 \
       -lmkl_lapack64 -lmkl_ipf -lmkl
 
 TROBJS= trtest.o shtranslate.o shrotate.o spbessel.o util.o

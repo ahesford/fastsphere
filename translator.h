@@ -14,6 +14,6 @@ typedef struct {
 } trdesc;
 
 complex double transang (int, complex double *, double *, double *, double, double);
-int translator (trdesc *, int, int, double *);
+int translator (trdesc *, int, int);
 
 #endif /* __TRANSLATOR_H_ */

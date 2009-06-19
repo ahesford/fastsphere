@@ -38,8 +38,8 @@ complex double transang (int ord, complex double *hfn, double *lgwork,
  * reference direction sdir. The values are stored in trans. In the theta
  * plane, ntheta samples are chosen according to Legendre-Gauss quadrature,
  * plus one value at each pole. There are nphi equally-spaced phi samples. */
-int translator (trdesc *trans, int ntheta, int nphi, double *theta) {
-	double phi, dphi, *lgwork, rng;
+int translator (trdesc *trans, int ntheta, int nphi) {
+	double phi, dphi, *lgwork, rng, dtheta, theta;
 	complex double *hfn, *tptr, cscale[4] = { 1.0, I, -1.0, -I };
 	int i, j, iscale;
 
@@ -64,15 +64,16 @@ int translator (trdesc *trans, int ntheta, int nphi, double *theta) {
 		}
 	}
 
-	/* Set the phi increment and the theta samples. */
+	/* Set the phi and theta increments. */
 	dphi = 2 * M_PI / MAX(nphi, 1);
+	dtheta = M_PI / MAX(ntheta, 1);
 
 	/* Build the non-pole translator values. */
-	for (i = 0, tptr = trans->trdata; i < ntheta; ++i) {
+	for (i = 0, theta = dtheta / 2, tptr = trans->trdata; i < ntheta; ++i, theta += dtheta) {
 		for (j = 0; j < nphi; ++j, ++tptr) {
 			phi = j * dphi;
 			*tptr = transang (trans->trunc, hfn, lgwork,
-					trans->sdir, theta[i], phi);
+					trans->sdir, theta, phi);
 		}
 	}
 

@@ -10,6 +10,7 @@
 #include <gsl/gsl_sf_legendre.h>
 
 #include "fsht.h"
+#include "util.h"
 
 void gaqd_ (int *, double *, double *, double *, int *, int *);
 
@@ -20,17 +21,10 @@ int fshtinit (shdata *dat, int deg, int ntheta, int nphi) {
 	/* This is actually one more than the maximum degree. */
 	dat->deg = deg;
 
-	/* The number of theta samples must at least equal the SH degree. */
-	if (ntheta < deg) dat->ntheta = deg;
-	else dat->ntheta = ntheta;
-
-	/* At least this many phi values are required for fast FFT evaluation. */
-	if (2 * deg - 1 > nphi) dat->nphi = 2 * deg - 1;
-	else dat->nphi = nphi;
-
-	/* Allocate the theta points and weights. */
-	dat->theta = malloc (2 * dat->ntheta * sizeof(double));
-	dat->weights = dat->theta + dat->ntheta;
+	/* The number of theta samples must be at least double the degree. */
+	dat->ntheta = MAX(ntheta, 2 * deg + 1);
+	/* The number of phi samples should be at least twice the theta samples. */
+	dat->nphi = MAX(2 * dat->ntheta, nphi);
 
 	/* Temporarily allocate an FFT data buffer for planning. */
 	fftbuf = fftw_malloc (dat->ntheta * dat->nphi * sizeof(complex double));
@@ -48,16 +42,10 @@ int fshtinit (shdata *dat, int deg, int ntheta, int nphi) {
 	 * on-the-fly when it is needed later. */
 	fftw_free (fftbuf);
 
-	/* Find the Legendre-Gauss quadrature points. */
-	gaqd_ (&(dat->ntheta), dat->theta, dat->weights, NULL, NULL, &ierr);
-	if (ierr) return ierr;
-
 	return 0;
 }
 
 int fshtfree (shdata *dat) {
-	if (dat->theta) free (dat->theta);
-
 	fftw_destroy_plan (dat->fplan);
 	fftw_destroy_plan (dat->bplan);
 
@@ -102,7 +90,7 @@ int shscale (complex double *samp, shdata *dat, int sgn) {
  * and phi into SH coefficients. */
 int ffsht (complex double *samp, shdata *dat) {
 	int i, j, k, aoff, npk, dm1;
-	double cth, pc, scale, *lgvals;
+	double sth, cth, pc, scale, *lgvals, theta, dtheta;
 	complex double *beta, *fftbuf;
 
 	/* Copy the samples to the FFT buffer and perform the FFT. */
@@ -121,17 +109,22 @@ int ffsht (complex double *samp, shdata *dat) {
 
 	dm1 = dat->deg - 1;
 
-	for (i = 0; i < dat->ntheta; ++i) {
-		/* Some scale factors that will be required. */
-		scale = 2 * M_PI * dat->weights[i] / dat->nphi;
-		cth = cos(dat->theta[i]);
+	/* The integration scale factor. */
+	scale = 2 * M_PI * M_PI / (dat->nphi * dat->ntheta);
+	/* The step in theta. */
+	dtheta = M_PI / dat->ntheta;
+
+	for (i = 0, theta = dtheta / 2; i < dat->ntheta; ++i, theta += dtheta) {
+		/* Some factors that will be required. */
+		cth = cos (theta);
+		sth = sin (theta);
 
 		/* Build the Legendre polynomials that we need. */
 		gsl_sf_legendre_sphPlm_array (dm1, 0, cth, lgvals);
 
 		/* Handle m = 0 for all degrees. */
 		for (j = 0; j < dat->deg; ++j)
-			samp[j * dat->nphi] += scale * beta[0] * lgvals[j];
+			samp[j * dat->nphi] += scale * sth * beta[0] * lgvals[j];
 
 		/* Handle nonzero orders for all relevant degrees. */
 		for (k = 1; k < dat->deg; ++k) {
@@ -139,7 +132,7 @@ int ffsht (complex double *samp, shdata *dat) {
 			gsl_sf_legendre_sphPlm_array (dm1, k, cth, lgvals);
 			for (j = k; j < dat->deg; ++j) {
 				aoff = j * dat->nphi;
-				pc = scale * lgvals[j - k];
+				pc = scale * sth * lgvals[j - k];
 				/* The positive-order coefficient. */
 				samp[aoff + k] += pc * beta[k];
 				/* The negative-order coefficient. */
@@ -160,7 +153,7 @@ int ffsht (complex double *samp, shdata *dat) {
  * function in theta and phi. */
 int ifsht (complex double *samp, shdata *dat) {
 	int i, j, k, aoff, npk, dm1, n;
-	double cth, *lgvals;
+	double cth, *lgvals, theta, dtheta;
 	complex double *beta, *fftbuf, polval[2];
 
 	/* The non-polar samples. */
@@ -176,9 +169,11 @@ int ifsht (complex double *samp, shdata *dat) {
 
 	dm1 = dat->deg - 1;
 
-	for (i = 0; i < dat->ntheta; ++i) {
+	dtheta = M_PI / dat->ntheta;
+
+	for (i = 0, theta = dtheta / 2; i < dat->ntheta; ++i, theta += dtheta) {
 		/* Some factors that will be used several times. */
-		cth = cos(dat->theta[i]);
+		cth = cos(theta);
 
 		/* Build the Legendre polynomials that we need. */
 		gsl_sf_legendre_sphPlm_array (dm1, 0, cth, lgvals);
