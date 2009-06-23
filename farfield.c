@@ -43,11 +43,10 @@ int neartofar (complex double *vout, complex double *vin, spscat *slist,
 #pragma omp parallel default(shared)
 {
 	int i, j, k, l;
-	double s[3], sdc, sth, phi, dtheta, theta;
+	double s[3], sdc, sth, phi;
 	complex double *vp, sfact, *buf;
 
 	buf = malloc (ntout * sizeof(complex double));
-	dtheta = M_PI / shout->ntheta;
 
 #pragma omp for
 	for (i = 0; i < nsph; ++i) {
@@ -61,9 +60,9 @@ int neartofar (complex double *vout, complex double *vin, spscat *slist,
 		ifsht (buf, shout);
 
 		/* Add the phase-shifted sphere pattern to the total pattern. */
-		for (j = 0, l = 0, theta = dtheta / 2; j < shout->ntheta; ++j, theta += dtheta) {
-			s[2] = cos(theta);
-			sth = sin(theta);
+		for (j = 0, l = 0; j < shout->ntheta; ++j) {
+			s[2] = cos((shout->theta)[j]);
+			sth = sin((shout->theta)[j]);
 			for (k = 0; k < shout->nphi; ++k, ++l) {
 				phi = k * dphi;
 				s[0] = sth * cos(phi);
@@ -108,20 +107,19 @@ int fartonear (complex double *vout, complex double *vin, spscat *slist,
 #pragma omp parallel default(shared)
 {
 	int i, j, k, l;
-	double s[3], sdc, sth, phi, theta, dtheta;
+	double s[3], sdc, sth, phi;
 	complex double *vp, *buf;
 
 	buf = malloc (ntin * sizeof(complex double));
-	dtheta = M_PI / shin->ntheta;
 
 #pragma omp for
 	for (i = 0; i < nsph; ++i) {
 		vp = vout + i * ntout;
 
 		/* Shift the phase of the sphere pattern. */
-		for (j = 0, l = 0, theta = dtheta / 2; j < shin->ntheta; ++j, theta += dtheta) {
-			s[2] = cos(theta);
-			sth = sin(theta);
+		for (j = 0, l = 0; j < shin->ntheta; ++j) {
+			s[2] = cos((shin->theta)[j]);
+			sth = sin((shin->theta)[j]);
 			for (k = 0; k < shin->nphi; ++k, ++l) {
 				phi = k * dphi;
 				s[0] = sth * cos(phi);

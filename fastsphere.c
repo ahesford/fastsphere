@@ -155,7 +155,7 @@ int main (int argc, char **argv) {
 		fprintf (stderr, "Built data for enclosing sphere\n");
 	} else {
 		i = rootorder (slist, nspheres, bg.k);
-		ntheta = MAX (2 * i + 1, ntheta);
+		ntheta = MAX (i + (i % 2) + 1, ntheta);
 		fshtinit (&shroot, i, ntheta, 2 * ntheta);
 		fprintf (stderr, "Built spherical harmonic data for far-field\n");
 	}

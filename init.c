@@ -22,7 +22,7 @@ int sphinit (sptype *spt, int nspt, complex double bgk,
 
 	/* Use a default value for angular samples if none specified.
 	 * The default value is forced to be odd. */
-	if (nt < 1) nt = 2 * deg + 1;
+	if (nt < 1) nt = deg + (deg % 2) + 1;
 
 	/* Initialize the SH transform data. */
 	fshtinit (shtr, deg, nt, 2 * nt);
@@ -48,7 +48,7 @@ int esbdinit (sptype *sbd, complex double bgk, double bgrho, shdata *shtr, int n
 	sbd->deg = exband (bgk * sbd->r, 6);
 	/* The number of angular samples in theta is forced to be odd,
 	 * and at least equal to the degree required. */
-	nang = MAX(2 * sbd->deg + 1, nang);
+	nang = MAX(sbd->deg + (sbd->deg % 2) + 1, nang);
 
 	/* Initialize the SH transform data. */
 	fshtinit (shtr, sbd->deg, nang, 2 * nang);
@@ -120,7 +120,7 @@ trdesc* sphbldfmm (spscat *sph, int nsph, complex double bgk, shdata *shtr) {
 
 		/* Allocate and build the translator array. */
 		trans[k].trdata = malloc (nterm * sizeof(complex double));
-		translator (trans + k, shtr->ntheta, shtr->nphi);
+		translator (trans + k, shtr->ntheta, shtr->nphi, shtr->theta);
 	}
 }
 

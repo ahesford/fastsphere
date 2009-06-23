@@ -6,6 +6,7 @@
 
 typedef struct {
 	int ntheta, nphi, deg;
+	double *theta, *weights;
 	fftw_plan fplan, bplan;
 } shdata;
 
