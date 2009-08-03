@@ -98,7 +98,7 @@ int scatmat (complex double *vout, complex double *vin, spscat *spl,
 
 int itsolve (complex double *sol, complex double *rhs, spscat *spl, int nsph,
 		trdesc *trans, shdata *shtr, itconf *itc) {
-	int icntl[7], irc[5], lwork, info[3], n, nterm, one = 1;
+	int icntl[8], irc[5], lwork, info[3], n, nterm, one = 1;
 	double rinfo[2], cntl[5];
 	complex double *zwork, *tx, *ty, *tz, zone = 1.0, zzero = 0.0;
 
