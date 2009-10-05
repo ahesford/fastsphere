@@ -1,14 +1,14 @@
-FF= /usr/local/bin/gfortran
-CC= /usr/local/bin/gcc
-AR= ar
+CC= gcc
 RM= rm -f
+LD= $(CC)
 
-OPTFLAGS= -fopenmp -O2 -march=nocona -mtune=nocona
-FFLAGS= $(OPTFLAGS)
-CFLAGS= $(OPTFLAGS) -I/opt/local/include
+OPTFLAGS= -fopenmp -O2 -march=opteron -mtune=opteron
 
-LFLAGS= $(OPTFLAGS) -L/opt/local/lib -L../spherepack31 -L../gmres
-LIBS= -lgmres -lspherepack -lgsl -lfftw3_threads -lfftw3 -framework Accelerate
+CFLAGS= $(OPTFLAGS) -I/opt/local/include -I/usr/local/include
+LFLAGS= $(OPTFLAGS) -L/opt/local/lib -L/usr/local/lib -L../spherepack31 -L../gmres
+
+LIBS= -lgmres -lspherepack -lgsl -lfftw3_threads -lfftw3 -lgfortran
+ARCHLIBS= -alapack_r -lptf77blas -lptcblas -latlas_r
 
 OBJS= config.o fastsphere.o fsht.o init.o scatmat.o farfield.o spbessel.o \
       shrotate.o shtranslate.o spreflect.o translator.o util.o
@@ -16,15 +16,18 @@ OBJS= config.o fastsphere.o fsht.o init.o scatmat.o farfield.o spbessel.o \
 FASTSPHERE= fastsphere
 
 fastsphere: $(OBJS)
-	$(FF) $(LFLAGS) -o $(FASTSPHERE) $(OBJS) $(LIBS)
+	$(LD) $(LFLAGS) -o $(FASTSPHERE) $(OBJS) $(LIBS) $(ARCHLIBS)
+
+darwin: OPTFLAGS= -fopenmp -O3 -march=nocona -mtune=nocona -arch x86_64 -arch i386
+darwin: ARCHLIBS= -framework Accelerate
+darwin: $(OBJS)
+	@echo "Building universal binary on Darwin."
+	$(LD) $(LFLAGS) -o $(FASTSPHERE) $(OBJS) $(LIBS) $(ARCHLIBS)
 
 clean:
-	$(RM) $(FASTSPHERE) $(OBJS) *.core core $(SHTEST) $(SHOBJS)
+	$(RM) $(FASTSPHERE) $(OBJS) *.core core
 
-.SUFFIXES: .o .f .c
-
-.f.o:
-	$(FF) $(FFLAGS) -o $@ -c $<
+.SUFFIXES: .o .c
 
 .c.o:
 	$(CC) $(CFLAGS) -o $@ -c $<
