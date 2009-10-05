@@ -1,13 +1,13 @@
 CC= gcc
 RM= rm -f
-LD= $(CC)
+LD= gfortran
 
 OPTFLAGS= -fopenmp -O2 -march=opteron -mtune=opteron
 
 CFLAGS= $(OPTFLAGS) -I/opt/local/include -I/usr/local/include
 LFLAGS= $(OPTFLAGS) -L/opt/local/lib -L/usr/local/lib -L../spherepack31 -L../gmres
 
-LIBS= -lgmres -lspherepack -lgsl -lfftw3_threads -lfftw3 -lgfortran
+LIBS= -lgmres -lspherepack -lgsl -lfftw3_threads -lfftw3
 ARCHLIBS= -alapack_r -lptf77blas -lptcblas -latlas_r
 
 OBJS= config.o fastsphere.o fsht.o init.o scatmat.o farfield.o spbessel.o \
