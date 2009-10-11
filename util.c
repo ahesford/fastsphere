@@ -10,6 +10,36 @@
 #include "util.h"
 #include "spbessel.h"
 
+/* The MSE between two vectors. */
+double rmserror (complex double *v, complex double *r, int n) {
+	double err = 0, errd = 0, e;
+	int i;
+
+	for (i = 0; i < n; ++i) {
+		e = cabs (v[i] - r[i]);
+		err += e * e;
+		e = cabs (r[i]);
+		errd += e * e;
+	}
+
+	return sqrt (err / errd);
+}
+
+/* Open a file or die. */
+FILE *critopen (char *fname, char *mode) {
+	FILE *fptr;
+
+	fptr = fopen (fname, mode);
+
+	if (!fptr) {
+		fprintf (stderr, "ERROR: Could not open input file %s.\n", fname);
+		exit (EXIT_FAILURE);
+
+		return NULL;
+	}
+
+	return fptr;
+}
 
 /* Compute the number of harmonics required using the excess bandwidth
  * formula. */
