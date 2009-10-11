@@ -80,7 +80,8 @@ int bldcontrast (complex float *ct, int *nelt, double *bmin, double *bmax,
 		cen[1] = bmin[1] + ((double)idx[1] + 0.5) * cell[1];
 		cen[2] = bmin[2] + ((double)idx[2] + 0.5) * cell[2];
 
-		ctval = 0;
+		/* Set the background contrast. */
+		ctval = 2 * M_PI;
 
 		/* Check if the point is in an enclosing sphere, if it exists. */
 		if (bgs && insphere (cen, zero, bgs->r))
