@@ -158,6 +158,12 @@ int main (int argc, char **argv) {
 	if (nbounce > 0) {
 		spreflect (finc, finc, bgspt.transmit, shroot.deg, shroot.nphi, 0, 1);
 		memcpy (oinc, finc, ntbg * sizeof(complex double));
+
+		if (rhsname) {
+			fptr = critopen (rhsname, "w");
+			writebvec (fptr, finc, shroot.nphi, shroot.deg);
+			fclose (fptr);
+		}
 	}
 
 	ifsht (finc, &shroot);
@@ -166,7 +172,7 @@ int main (int argc, char **argv) {
 
 	fprintf (stderr, "Built RHS vector\n");
 
-	if (rhsname) {
+	if (nbounce < 1 && rhsname) {
 		fptr = critopen (rhsname, "w");
 		writebvec (fptr, rhs, n, 1);
 		fclose (fptr);
