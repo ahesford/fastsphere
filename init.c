@@ -76,7 +76,7 @@ trdesc* sphbldfmm (spscat *sph, int nsph, complex double bgk, shdata *shtr) {
 	trdesc *trans;
 
 	nsq = nsph * nsph;
-	nterm = shtr->ntheta * shtr->nphi + 2;
+	nterm = shtr->ntheta * shtr->nphi;
 
 	trans = calloc (nsq, sizeof(trdesc));
 

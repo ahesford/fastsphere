@@ -131,12 +131,12 @@ int main (int argc, char **argv) {
 		fprintf (stderr, "Built spherical harmonic data for far-field\n");
 	}
 
-	nterm = shtr.ntheta * shtr.nphi + 2;
+	nterm = shtr.ntheta * shtr.nphi;
 	n = nspheres * nterm;
 	rhs = calloc (2 * n, sizeof(complex double));
 	sol = rhs + n;
 	
-	ntbg = shroot.ntheta * shroot.nphi + 2;
+	ntbg = shroot.ntheta * shroot.nphi;
 
 	radpat = calloc (2 * ntbg, sizeof(complex double));
 	finc = radpat + ntbg;

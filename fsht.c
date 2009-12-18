@@ -161,7 +161,7 @@ int ffsht (complex double *samp, shdata *dat) {
 int ifsht (complex double *samp, shdata *dat) {
 	int i, j, k, aoff, npk, dm1, n;
 	double cth, *lgvals;
-	complex double *beta, *fftbuf, polval[2];
+	complex double *beta, *fftbuf;
 
 	/* The non-polar samples. */
 	n = dat->ntheta * dat->nphi;
@@ -202,26 +202,9 @@ int ifsht (complex double *samp, shdata *dat) {
 		beta += dat->nphi;
 	}
 
-	polval[0] = polval[1] = 0;
-
-	/* Handle the poles. Note that the zero-order Legendre functions are
-	 * polynomials, so the evenness and oddness can be exploited. */
-	gsl_sf_legendre_sphPlm_array (dm1, 0, 1, lgvals);
-
-	for (j = 0; j < dat->deg; ++j) {
-		/* Sign change for the south pole. */
-		aoff = 1 - 2 * (j % 2);
-		polval[0] += samp[j * dat->nphi] * lgvals[j];
-		polval[1] += aoff * samp[j * dat->nphi] * lgvals[j];
-	}
-
 	/* Perform the inverse FFT and copy the values to the storage area. */
 	fftw_execute_dft (dat->bplan, fftbuf, fftbuf);
 	memcpy (samp, fftbuf, n * sizeof(complex double));
-
-	/* Copy the polar values. */
-	samp[n] = polval[0];
-	samp[n + 1] = polval[1];
 
 	/* Eliminate the FFT buffer. */
 	fftw_free (fftbuf);

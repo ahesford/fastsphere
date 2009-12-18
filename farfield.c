@@ -34,8 +34,8 @@ int neartofar (complex double *vout, complex double *vin, spscat *slist,
 	int ntin, ntout;
 	double dphi;
 
-	ntin = shin->ntheta * shin->nphi + 2;
-	ntout = shout->ntheta * shout->nphi + 2;
+	ntin = shin->ntheta * shin->nphi;
+	ntout = shout->ntheta * shout->nphi;
 	dphi = 2 * M_PI / MAX(shout->nphi, 1);
 
 	memset (vout, 0, ntout * sizeof(complex double));
@@ -76,15 +76,6 @@ int neartofar (complex double *vout, complex double *vin, spscat *slist,
 				vout[l] += sfact * buf[l];
 			}
 		}
-
-		/* Augment the poles with synchronization. The offset should
-		 * be properly computed from the for loop. */
-		l = shout->ntheta * shout->nphi;
-#pragma omp critical(outrad)
-{
-		vout[l] += cexp(-I * bgk * slist[i].cen[2]) * buf[l];
-		vout[l + 1] += cexp (I * bgk * slist[i].cen[2]) * buf[l + 1];
-}
 	}
 
 	free (buf);
@@ -100,8 +91,8 @@ int fartonear (complex double *vout, complex double *vin, spscat *slist,
 	int ntin, ntout;
 	double dphi;
 
-	ntin = shin->ntheta * shin->nphi + 2;
-	ntout = shout->ntheta * shout->nphi + 2;
+	ntin = shin->ntheta * shin->nphi;
+	ntout = shout->ntheta * shout->nphi;
 	dphi = 2 * M_PI / MAX(shin->nphi, 1);
 
 #pragma omp parallel default(shared)
@@ -131,8 +122,6 @@ int fartonear (complex double *vout, complex double *vin, spscat *slist,
 			}
 		}
 		
-		/* The poles don't contribute to the forward SHT, and they
-		 * are re-evaluated by the inverse SHT. Don't compute them. */
 		ffsht (buf, shin);
 		memset (vp, 0, ntout * sizeof(complex double));
 		copysh (shout->deg, vp, shout->nphi, buf, shin->nphi);

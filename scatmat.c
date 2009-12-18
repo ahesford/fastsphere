@@ -20,7 +20,7 @@ int sprflpw (complex double *rhs, spscat *spl, int nsph, shdata *shtr) {
 	int i, nterm;
 	complex double *vptr;
 
-	nterm = shtr->ntheta * shtr->nphi + 2;
+	nterm = shtr->ntheta * shtr->nphi;
 
 #pragma omp parallel for private(i,vptr) default(shared)
 	for (i = 0; i < nsph; ++i) {
@@ -41,7 +41,7 @@ int sptrans (complex double *vout, complex double *vin,
 		int nsph, trdesc *trans, shdata *shtr) {
 	int nterm, nsq;
 
-	nterm = shtr->ntheta * shtr->nphi + 2;
+	nterm = shtr->ntheta * shtr->nphi;
 	nsq = nsph * nsph;
 
 	/* Perform the translations. */
@@ -77,7 +77,7 @@ int scatmat (complex double *vout, complex double *vin, spscat *spl,
 		int nsph, trdesc *trans, shdata *shtr) {
 	int nterm, n, i;
 
-	nterm = shtr->ntheta * shtr->nphi + 2;
+	nterm = shtr->ntheta * shtr->nphi;
 	n = nterm * nsph;
 
 	/* Initialize the output bufer. */
@@ -102,7 +102,7 @@ int itsolve (complex double *sol, complex double *rhs, spscat *spl, int nsph,
 	double rinfo[2], cntl[5];
 	complex double *zwork, *tx, *ty, *tz, zone = 1.0, zzero = 0.0;
 
-	nterm = shtr->ntheta * shtr->nphi + 2;
+	nterm = shtr->ntheta * shtr->nphi;
 	n = nterm * nsph;
 
 	lwork = itc->restart * itc->restart + itc->restart * (n + 5) + 5 * n + 2;
