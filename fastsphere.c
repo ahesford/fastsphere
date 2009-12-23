@@ -166,7 +166,7 @@ int main (int argc, char **argv) {
 		}
 	}
 
-	ifsht (finc, &shroot);
+	ifsht (finc, &shroot, 0);
 	fartonear (rhs, finc, slist, nspheres, bgspt.k, &shtr, &shroot);
 	sprflpw (rhs, slist, nspheres, &shtr);
 
@@ -189,7 +189,7 @@ int main (int argc, char **argv) {
 		/* Reset the incident field. */
 		memcpy (finc, oinc, ntbg * sizeof(complex double));
 		/* Add in the reflection of the inner spheres. */
-		ffsht (radpat, &shroot);
+		ffsht (radpat, &shroot, 0);
 		spreflect (finc, radpat, bgspt.reflect, shroot.deg, shroot.nphi, 1, -1);
 		/* Store a copy of this field for comparison in the next cycle. */
 		memcpy (lastwv, finc, ntbg * sizeof(complex double));
@@ -197,7 +197,7 @@ int main (int argc, char **argv) {
 
 	for (i = 0, --nbounce; i < nbounce; ++i) {
 		/* Distribute standing wave to internal spheres. */
-		ifsht (finc, &shroot);
+		ifsht (finc, &shroot, 0);
 		fartonear (rhs, finc, slist, nspheres, bgspt.k, &shtr, &shroot);
 
 		/* Reflect incoming wave from internal spheres. */
@@ -213,7 +213,7 @@ int main (int argc, char **argv) {
 		memcpy (finc, oinc, ntbg * sizeof(complex double));
 
 		/* Reflect the scattered field into the standing wave. */
-		ffsht (radpat, &shroot);
+		ffsht (radpat, &shroot, 0);
 		spreflect (finc, radpat, bgspt.reflect, shroot.deg, shroot.nphi, 1, -1);
 
 		/* Find the relative change in the standing-wave pattern. */
@@ -234,7 +234,7 @@ int main (int argc, char **argv) {
 		spreflect (radpat, finc, bgspt.reflect + shroot.deg, shroot.deg, shroot.nphi, 1, 1);
 
 		/* Back to a far-field signature. */
-		ifsht (radpat, &shroot);
+		ifsht (radpat, &shroot, 0);
 	}
 
 	/* Measure at a finite distance, if desired. */
@@ -243,7 +243,7 @@ int main (int argc, char **argv) {
 		mslen *= exct.f / bg.cabs;
 		fprintf (stderr, "Computing scattered field at radius %g wavelengths\n", mslen);
 
-		ffsht (radpat, &shroot);
+		ffsht (radpat, &shroot, 0);
 
 		/* Scale the SH coefficients appropriately. */
 		shscale (radpat, &shroot, 1);
@@ -252,7 +252,7 @@ int main (int argc, char **argv) {
 		shradial (shroot.deg, radpat, shroot.nphi, bg.k, mslen);
 
 		/* Back to angular representation. */
-		ifsht (radpat, &shroot);
+		ifsht (radpat, &shroot, 0);
 	}
 
 	if (!outname) fptr = stdout;

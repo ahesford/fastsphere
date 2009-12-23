@@ -19,17 +19,20 @@ void zgemv_ (char *, int *, int *, complex double *, complex double *, int *,
 int sprflpw (complex double *rhs, spscat *spl, int nsph, shdata *shtr) {
 	int i, nterm;
 	complex double *vptr;
+	spscat *sp;
 
 	nterm = shtr->ntheta * shtr->nphi;
 
-#pragma omp parallel for private(i,vptr) default(shared)
+#pragma omp parallel for private(i,vptr,sp) default(shared)
 	for (i = 0; i < nsph; ++i) {
+		sp = spl + i;
 		vptr = rhs + i * nterm;
 
 		/* Multiply by the reflection coefficient in SH space. */
-		ffsht (vptr, shtr);
-		spreflect (vptr, vptr, (spl + i)->spdesc->reflect, shtr->deg, shtr->nphi, 0, 1);
-		ifsht (vptr, shtr);
+		ffsht (vptr, shtr, sp->spdesc->deg);
+		spreflect (vptr, vptr, (spl + i)->spdesc->reflect,
+				sp->spdesc->deg, shtr->nphi, 0, 1);
+		ifsht (vptr, shtr, sp->spdesc->deg);
 	}
 
 	return nsph;

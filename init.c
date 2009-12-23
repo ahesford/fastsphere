@@ -33,7 +33,7 @@ int sphinit (sptype *spt, int nspt, complex double bgk,
 		sptr = spt + i;
 		/* The reflection coefficients go out to the maximum degree,
 		 * but are all zero beyond the sphere's maximum degree. */
-		sptr->reflect = calloc (deg, sizeof(complex double));
+		sptr->reflect = calloc (sptr->deg, sizeof(complex double));
 		/* The background relative density is unity, and the sphere
 		 * density is specified relative to the background. */
 		spbldrc (sptr->reflect, bgk, sptr->k,
@@ -110,7 +110,7 @@ trdesc* sphbldfmm (spscat *sph, int nsph, complex double bgk, shdata *shtr) {
 		/* Normalize translation direction. */
 		sdir[0] /= dist; sdir[1] /= dist; sdir[2] /= dist;
 
-		trans[k].trunc = (sph[i].spdesc)->deg;
+		trans[k].trunc = MAX(sph[j].spdesc->deg, sph[i].spdesc->deg);
 
 		/* Find the rotation angles of the translation direction. */
 		getangles (&(trans[k].theta), &(trans[k].chi), &(trans[k].phi), sdir);

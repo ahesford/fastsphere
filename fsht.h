@@ -13,8 +13,8 @@ typedef struct {
 int fshtinit (shdata *, int, int, int);
 int fshtfree (shdata *);
 
-int ffsht (complex double *, shdata *);
-int ifsht (complex double *, shdata *);
+int ffsht (complex double *, shdata *, int);
+int ifsht (complex double *, shdata *, int);
 
 int shscale (complex double *, shdata *, int);
 

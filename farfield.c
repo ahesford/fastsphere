@@ -45,19 +45,21 @@ int neartofar (complex double *vout, complex double *vin, spscat *slist,
 	int i, j, k, l;
 	double s[3], sdc, sth, phi;
 	complex double *vp, sfact, *buf;
+	spscat *sp;
 
 	buf = malloc (ntout * sizeof(complex double));
 
 #pragma omp for
 	for (i = 0; i < nsph; ++i) {
+		sp = slist + i;
 		vp = vin + i * ntin;
 
-		/* Interpolate the spherical scattered field. */
-		ffsht (vp, shin);
+		/* Interpolate then spherical scattered field. */
+		ffsht (vp, shin, sp->spdesc->deg);
 		memset (buf, 0, ntout * sizeof(complex double));
-		copysh (shin->deg, buf, shout->nphi, vp, shin->nphi);
-		ifsht (vp, shin);
-		ifsht (buf, shout);
+		copysh (sp->spdesc->deg, buf, shout->nphi, vp, shin->nphi);
+		ifsht (vp, shin, sp->spdesc->deg);
+		ifsht (buf, shout, sp->spdesc->deg);
 
 		/* Add the phase-shifted sphere pattern to the total pattern. */
 		for (j = 0, l = 0; j < shout->ntheta; ++j) {
@@ -100,11 +102,13 @@ int fartonear (complex double *vout, complex double *vin, spscat *slist,
 	int i, j, k, l;
 	double s[3], sdc, sth, phi;
 	complex double *vp, *buf;
+	spscat *sp;
 
 	buf = malloc (ntin * sizeof(complex double));
 
 #pragma omp for
 	for (i = 0; i < nsph; ++i) {
+		sp = slist + i;
 		vp = vout + i * ntout;
 
 		/* Shift the phase of the sphere pattern. */
@@ -122,10 +126,10 @@ int fartonear (complex double *vout, complex double *vin, spscat *slist,
 			}
 		}
 		
-		ffsht (buf, shin);
+		ffsht (buf, shin, sp->spdesc->deg);
 		memset (vp, 0, ntout * sizeof(complex double));
-		copysh (shout->deg, vp, shout->nphi, buf, shin->nphi);
-		ifsht (vp, shout);
+		copysh (sp->spdesc->deg, vp, shout->nphi, buf, shin->nphi);
+		ifsht (vp, shout, sp->spdesc->deg);
 	}
 
 	free (buf);

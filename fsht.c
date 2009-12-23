@@ -100,8 +100,8 @@ int shscale (complex double *samp, shdata *dat, int sgn) {
 
 /* Forward spherical harmonic transform: take samples of the function in theta
  * and phi into SH coefficients. */
-int ffsht (complex double *samp, shdata *dat) {
-	int i, j, k, aoff, npk, dm1;
+int ffsht (complex double *samp, shdata *dat, int maxdeg) {
+	int i, j, k, aoff, npk, dm1, deg = maxdeg;
 	double cth, pc, scale, *lgvals;
 	complex double *beta, *fftbuf;
 
@@ -119,7 +119,10 @@ int ffsht (complex double *samp, shdata *dat) {
 
 	beta = fftbuf;
 
-	dm1 = dat->deg - 1;
+	/* If no maximum degree is specified, use the default. */
+	if (maxdeg < 1) deg = dat->deg;
+
+	dm1 = deg - 1;
 
 	for (i = 0; i < dat->ntheta; ++i) {
 		/* Some scale factors that will be required. */
@@ -130,14 +133,14 @@ int ffsht (complex double *samp, shdata *dat) {
 		gsl_sf_legendre_sphPlm_array (dm1, 0, cth, lgvals);
 
 		/* Handle m = 0 for all degrees. */
-		for (j = 0; j < dat->deg; ++j)
+		for (j = 0; j < deg; ++j)
 			samp[j * dat->nphi] += scale * beta[0] * lgvals[j];
 
 		/* Handle nonzero orders for all relevant degrees. */
-		for (k = 1; k < dat->deg; ++k) {
+		for (k = 1; k < deg; ++k) {
 			npk = dat->nphi - k;
 			gsl_sf_legendre_sphPlm_array (dm1, k, cth, lgvals);
-			for (j = k; j < dat->deg; ++j) {
+			for (j = k; j < deg; ++j) {
 				aoff = j * dat->nphi;
 				pc = scale * lgvals[j - k];
 				/* The positive-order coefficient. */
@@ -153,13 +156,13 @@ int ffsht (complex double *samp, shdata *dat) {
 	/* The FFT buffer is no longer required. */
 	fftw_free (fftbuf);
 
-	return dat->deg;
+	return deg;
 }
 
 /* Inverse spherical harmonic transform: take SH coefficients to sample of the
  * function in theta and phi. */
-int ifsht (complex double *samp, shdata *dat) {
-	int i, j, k, aoff, npk, dm1, n;
+int ifsht (complex double *samp, shdata *dat, int maxdeg) {
+	int i, j, k, aoff, npk, dm1, n, deg = maxdeg;
 	double cth, *lgvals;
 	complex double *beta, *fftbuf;
 
@@ -174,7 +177,10 @@ int ifsht (complex double *samp, shdata *dat) {
 
 	beta = fftbuf;
 
-	dm1 = dat->deg - 1;
+	/* Use the default degree if no maximum is specified. */
+	if (maxdeg < 1) deg = dat->deg;
+
+	dm1 = deg - 1;
 
 	for (i = 0; i < dat->ntheta; ++i) {
 		/* Some factors that will be used several times. */
@@ -183,13 +189,13 @@ int ifsht (complex double *samp, shdata *dat) {
 		/* Build the Legendre polynomials that we need. */
 		gsl_sf_legendre_sphPlm_array (dm1, 0, cth, lgvals);
 
-		for (j = 0; j < dat->deg; ++j)
+		for (j = 0; j < deg; ++j)
 			beta[0] += samp[j * dat->nphi] * lgvals[j];
 
-		for (k = 1; k < dat->deg; ++k) {
+		for (k = 1; k < deg; ++k) {
 			npk = dat->nphi - k;
 			gsl_sf_legendre_sphPlm_array (dm1, k, cth, lgvals);
-			for (j = k; j < dat->deg; ++j) {
+			for (j = k; j < deg; ++j) {
 				aoff = j * dat->nphi;
 				/* The positive-order coefficient. */
 				beta[k] += samp[aoff + k] * lgvals[j - k];
@@ -210,5 +216,5 @@ int ifsht (complex double *samp, shdata *dat) {
 	fftw_free (fftbuf);
 	free (lgvals);
 
-	return dat->deg;
+	return deg;
 }
