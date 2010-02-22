@@ -22,6 +22,7 @@ fastsphere: $(OBJS) fastsphere.o spherepix.o
 
 darwin: OPTFLAGS= -fopenmp -O3 -march=nocona -mtune=nocona -arch x86_64 -arch i386
 darwin: ARCHLIBS= -framework Accelerate
+darwin: CC= llvm-gcc
 darwin: $(OBJS) fastsphere.o spherepix.o
 	@echo "Building universal binary on Darwin."
 	$(LD) $(LFLAGS) -o $(FASTSPHERE) fastsphere.o $(OBJS) $(LIBS) $(ARCHLIBS)
@@ -29,6 +30,7 @@ darwin: $(OBJS) fastsphere.o spherepix.o
 
 darwin32: OPTFLAGS= -fopenmp -O3 -march=nocona -mtune=nocona -arch i386
 darwin32: ARCHLIBS= -framework Accelerate
+darwin32: CC= llvm-gcc
 darwin32: $(OBJS) fastsphere.o spherepix.o
 	@echo "Building universal binary on Darwin."
 	$(LD) $(LFLAGS) -o $(FASTSPHERE) fastsphere.o $(OBJS) $(LIBS) $(ARCHLIBS)

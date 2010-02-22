@@ -56,7 +56,7 @@ int neartofar (complex double *vout, complex double *vin, spscat *slist,
 
 		/* Interpolate then spherical scattered field. */
 		ffsht (vp, shin, sp->spdesc->deg);
-		memset (buf, 0, ntout * sizeof(complex double));
+		for (j = 0; j < ntout; ++j) buf[j] = 0;
 		copysh (sp->spdesc->deg, buf, shout->nphi, vp, shin->nphi);
 		ifsht (vp, shin, sp->spdesc->deg);
 		ifsht (buf, shout, sp->spdesc->deg);
@@ -127,7 +127,7 @@ int fartonear (complex double *vout, complex double *vin, spscat *slist,
 		}
 		
 		ffsht (buf, shin, sp->spdesc->deg);
-		memset (vp, 0, ntout * sizeof(complex double));
+		for (j = 0; j < ntout; ++j) vp[j] = 0;
 		copysh (sp->spdesc->deg, vp, shout->nphi, buf, shin->nphi);
 		ifsht (vp, shout, sp->spdesc->deg);
 	}
