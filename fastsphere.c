@@ -49,7 +49,8 @@ int writebvec (FILE *out, complex double *vec, int n, int m) {
 }
 
 int main (int argc, char **argv) {
-	int nspheres, nsptype, n, nterm, i, nbounce = 0, ntbg, ntheta = 0, mxthd = 1;
+	int nspheres, nsptype, n, nterm, i, j, nit, nbounce = 0;
+	int ntbg, ntheta = 0, mxthd = 1;
 	sptype *sparms, bgspt;
 	spscat *slist;
 	bgtype bg;
@@ -181,7 +182,8 @@ int main (int argc, char **argv) {
 	/* The RHS is the initial guess. */
 	memcpy (sol, rhs, n * sizeof(complex double));
 
-	itsolve (sol, rhs, slist, nspheres, trans, &shtr, &itc);
+	for (j = 0, nit = 1; j < itc.restart && nit > 0; ++j)
+		nit = bicgstab (sol, rhs, j, slist, nspheres, trans, &shtr, &itc);
 
 	neartofar (radpat, sol, slist, nspheres, bgspt.k, &shroot, &shtr);
 
@@ -204,7 +206,8 @@ int main (int argc, char **argv) {
 		sprflpw (rhs, slist, nspheres, &shtr);
 
 		/* Solve for the fields scattered by inner spheres. */
-		itsolve (sol, rhs, slist, nspheres, trans, &shtr, &itc);
+		for (j = 0, nit = 1; j < itc.restart && nit > 0; ++j)
+			nit = bicgstab (sol, rhs, j, slist, nspheres, trans, &shtr, &itc);
 
 		/* Compute the far-field pattern of the internal spheres. */
 		neartofar (radpat, sol, slist, nspheres, bgspt.k, &shroot, &shtr);

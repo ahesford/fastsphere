@@ -15,7 +15,7 @@
 #include "spreflect.h"
 
 void usage () {
-	fprintf (stderr, "USAGE: fastsphere [-h] [-e] [-m mx [my mz [Mx My Mz]]]\n\t\t[-n Nx [Ny Nz]] [-i input] [-o output]\n\n");
+	fprintf (stderr, "USAGE: spherepix [-h] [-e] [-m mx [my mz [Mx My Mz]]]\n\t\t[-n Nx [Ny Nz]] [-i input] [-o output]\n\n");
 	fprintf (stderr, "\t-h\tPrint this message and exit\n");
 	fprintf (stderr, "\t-e\tSpecify the existence of an enclosing sphere in the input file\n");
 	fprintf (stderr, "\t-m\tSpecify the lower and upper box corner in wavelengths\n\t\t(default: tight)\n");

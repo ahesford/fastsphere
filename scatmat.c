@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <complex.h>
+#include <math.h>
 #include <string.h>
 
 #include "fastsphere.h"
@@ -14,6 +15,15 @@ void drivezgmres_ (int *, int *, int *, int *, complex double *,
 void initzgmres_ (int *, double *);
 void zgemv_ (char *, int *, int *, complex double *, complex double *, int *,
 		complex double *, int *, complex double *, complex double *, int *);
+
+static complex double pardot (complex double *x, complex double *y, int n) {
+	complex double dp;
+
+	/* Compute the local portion. */
+	cblas_zdotc_sub (n, x, 1, y, 1, &dp);
+
+	return dp;
+}
 
 /* Reflect incoming plane waves from the surfaces of all spheres. */
 int sprflpw (complex double *rhs, spscat *spl, int nsph, shdata *shtr) {
@@ -97,6 +107,102 @@ int scatmat (complex double *vout, complex double *vin, spscat *spl,
 	for (i = 0; i < n; ++i) vout[i] = vin[i] - vout[i];
 
 	return nsph;
+}
+
+int bicgstab (complex double *sol, complex double *rhs, int guess, spscat *spl,
+		int nsph, trdesc *trans, shdata *shtr, itconf *itc) {
+	int i, j, n, nterm;
+	complex double *r, *rhat, *v, *p, *t;
+	complex double rho, alpha, omega, beta;
+	float err, rhn;
+
+	nterm = shtr->ntheta * shtr->nphi;
+	n = nterm * nsph;
+
+	rho = alpha = omega = 1.;
+
+	/* Allocate and zero the work arrays. */
+	r = calloc (5 * n, sizeof(complex double));
+	rhat = r + n;
+	v = rhat + n;
+	p = v + n;
+	t = p + n;
+
+	/* Compute the norm of the right-hand side for residual scaling. */
+	rhn = sqrt(creal(pardot (rhs, rhs, n)));
+
+	/* Compute the inital matrix-vector product for the input guess. */
+	if (guess) scatmat (r, sol, spl, nsph, trans, shtr);
+
+	/* Subtract from the RHS to form the residual. */
+#pragma omp parallel for default(shared) private(j)
+	for (j = 0; j < n; ++j) r[j] = rhs[j] - r[j];
+
+	if (!guess) memset (sol, 0, n * sizeof(complex double));
+		
+	/* Copy the initial residual as the test vector. */
+	memcpy (rhat, r, n * sizeof(complex double));
+
+	/* Find the norm of the initial residual. */
+	err = sqrt(creal(pardot (r, r, n))) / rhn;
+	printf ("True residual: %g\n", err);
+
+	/* Run iterations until convergence or the maximum is reached. */
+	for (i = 0; i < itc->iter && err > itc->eps; ++i) {
+		/* Pre-compute portion of beta from previous iteration. */
+		beta = alpha / (rho * omega);
+		/* Compute rho for this iteration. */
+		rho = pardot (rhat, r, n);
+		/* Include the missing factor in beta. */
+		beta *= rho;
+
+		/* Update the search vector. */
+#pragma omp parallel for default(shared) private(j)
+		for (j = 0; j < n; ++j)
+			p[j] = r[j] + beta * (p[j] - omega * v[j]);
+
+		/* Compute the first search step, v = A * p. */
+		scatmat (v, p, spl, nsph, trans, shtr);
+
+		/* Compute the next alpha. */
+		alpha = rho / pardot (rhat, v, n);
+
+#pragma omp parallel for default(shared) private(j)
+		for (j = 0; j < n; ++j) {
+			/* Update the solution vector. */
+			sol[j] += alpha * p[j];
+			/* Update the residual vector. */
+			r[j] -= alpha * v[j];
+		}
+
+		/* Compute the scaled residual norm and stop if convergence
+		 * has been achieved. */
+		err = sqrt(creal(pardot (r, r, n))) / rhn;
+		printf ("BiCG-STAB(%0.1f): %g\n", 0.5 + i, err);
+		if (err < itc->eps) break;
+
+		/* Compute the next search step, t = A * r. */
+		scatmat (t, r, spl, nsph, trans, shtr);
+
+		/* Compute the update direction. */
+		omega = pardot (t, r, n) / pardot (t, t, n);
+
+		/* Update both the residual and the solution guess. */
+#pragma omp parallel for default(shared) private(j)
+		for (j = 0; j < n; ++j) {
+			/* Update the solution vector. */
+			sol[j] += omega * r[j];
+			/* Update the residual vector. */
+			r[j] -= omega * t[j];
+		}
+	
+		/* Compute the scaled residual norm. */
+		err = sqrt(creal(pardot (r, r, n))) / rhn;
+		printf ("BiCG-STAB(%d): %g\n", i + 1, err);
+	}
+
+	free (r);
+	return i;
 }
 
 int itsolve (complex double *sol, complex double *rhs, spscat *spl, int nsph,
