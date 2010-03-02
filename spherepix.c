@@ -40,6 +40,7 @@ int writebvec (FILE *out, complex float *vec, int ndim, int *nelts) {
 	return len;
 }
 
+/* Determin if a point is inside a sphere. */
 int insphere (double *pt, double *cen, double r) {
 	double dist, dx[3];
 
@@ -54,10 +55,42 @@ int insphere (double *pt, double *cen, double r) {
 	return (dist <= r);
 }
 
+/* Contribute one-variable contribution to the Laplacian of the inverse of the
+ * square root of density. The density is already rooted. */
+float dendiff (float *den, float delta, int pos, int stride, int max) {
+	float dlap;
+	int po;
+
+	/* Compute the central contribution. */
+	dlap = -2.0 / den[pos];
+
+	/* Add in the outer term, if it exists. Otherwise the relative density
+	 * is uniform everywhere. */
+	po = pos + stride;
+	if (po < max) dlap += 1.0 / den[po];
+	else dlap += 1.0;
+
+	/* Add in the inner term, if it exists. Otherwise the relative density
+	 * is uniform everywhere. */
+	po = pos - stride;
+	if (po >= 0) dlap += 1.0 / den[po];
+	else dlap += 1.0;
+
+	/* Divide out the step size. */
+	dlap /= (delta * delta);
+
+	return dlap;
+}
+
+/* Build the contrast map. */
 int bldcontrast (complex float *ct, int *nelt, double *bmin, double *bmax,
 		sptype *bgs, spscat *slist, int nsphere) {
 	double cell[3], zero[3] = {0, 0, 0};
 	int ntot = nelt[0] * nelt[1] * nelt[2];
+	float *density;
+
+	/* Allocate a density map. */
+	density = malloc (ntot * sizeof(float));
 
 	cell[0] = (bmax[0] - bmin[0]) / nelt[0];
 	cell[1] = (bmax[1] - bmin[1]) / nelt[1];
@@ -68,11 +101,14 @@ int bldcontrast (complex float *ct, int *nelt, double *bmin, double *bmax,
 	double cen[3];
 	int i, j, idx[3];
 	complex float ctval;
+	float dval;
 
+	/* Build the density-free contrast and the density map. */
+#pragma omp for
 	for (i = 0; i < ntot; ++i) {
 		/* Find the cell index. */
 		idx[0] = i % nelt[0];
-		idx[1] = (i / nelt[0]) % nelt[2];
+		idx[1] = (i / nelt[0]) % nelt[1];
 		idx[2] = i / (nelt[0] * nelt[1]);
 
 		/* Find the cell center. */
@@ -82,24 +118,50 @@ int bldcontrast (complex float *ct, int *nelt, double *bmin, double *bmax,
 
 		/* Set the background contrast. */
 		ctval = 2 * M_PI;
+		dval = 1.0;
 
 		/* Check if the point is in an enclosing sphere, if it exists. */
-		if (bgs && insphere (cen, zero, bgs->r))
+		if (bgs && insphere (cen, zero, bgs->r)) {
 			ctval = (complex float)(bgs->k);
+			dval = (float)(bgs->rho);
+		}
 
 		/* If the point is in an inner sphere, set the wave number. */
 		for (j = 0; j < nsphere; ++j) 
-			if (insphere (cen, slist[j].cen, slist[j].spdesc->r))
+			if (insphere (cen, slist[j].cen, slist[j].spdesc->r)) {
 				ctval = (complex float)(slist[j].spdesc->k);
+				dval = (float)(slist[j].spdesc->rho);
+			}
 
 		/* Convert the wave number to the contrast. */
 		ctval /= (2 * M_PI);
 		ctval = ctval * ctval - 1;
 
-		/* Set the contrast value in the grid. */
+		/* Set the contrast value and density in the grid. */
 		ct[i] = ctval;
+		density[i] = sqrt(dval);
+	}
+
+	/* Now compute the density contribution to the contrast. */
+#pragma omp for
+	for (i = 0; i < ntot; ++i) {
+		/* The x derivatives. */
+		dval = dendiff (density, cell[0], i, 1, ntot);
+		/* The y derivatives. */
+		dval += dendiff (density, cell[1], i, nelt[0], ntot);
+		/* The z derivatives. */
+		dval += dendiff (density, cell[2], i, nelt[0] * nelt[1], ntot);
+
+		/* Multiply by density square root and normalize by background
+		 * wave number. */
+		dval *= density[i] / (4.0 * M_PI * M_PI);
+
+		/* Correct the contrast. */
+		ct[i] -= dval;
 	}
 	}
+
+	free (density);
 
 	return ntot;
 }
