@@ -1,7 +1,14 @@
 #include <stdlib.h>
 #include <complex.h>
+#include <float.h>
 #include <math.h>
 #include <string.h>
+
+#ifdef _MACOSX
+#include <Accelerate/Accelerate.h>
+#else
+#include <cblas.h>
+#endif
 
 #include "fastsphere.h"
 #include "spreflect.h"
@@ -9,21 +16,7 @@
 #include "scatmat.h"
 #include "fsht.h"
 #include "farfield.h"
-
-void drivezgmres_ (int *, int *, int *, int *, complex double *,
-		int *, int *, double *, int *, double *);
-void initzgmres_ (int *, double *);
-void zgemv_ (char *, int *, int *, complex double *, complex double *, int *,
-		complex double *, int *, complex double *, complex double *, int *);
-
-static complex double pardot (complex double *x, complex double *y, int n) {
-	complex double dp;
-
-	/* Compute the local portion. */
-	cblas_zdotc_sub (n, x, 1, y, 1, &dp);
-
-	return dp;
-}
+#include "util.h"
 
 /* Reflect incoming plane waves from the surfaces of all spheres. */
 int sprflpw (complex double *rhs, spscat *spl, int nsph, shdata *shtr) {
@@ -114,7 +107,7 @@ int bicgstab (complex double *sol, complex double *rhs, int guess, spscat *spl,
 	int i, j, n, nterm;
 	complex double *r, *rhat, *v, *p, *t;
 	complex double rho, alpha, omega, beta;
-	float err, rhn;
+	double err, rhn;
 
 	nterm = shtr->ntheta * shtr->nphi;
 	n = nterm * nsph;
@@ -129,7 +122,7 @@ int bicgstab (complex double *sol, complex double *rhs, int guess, spscat *spl,
 	t = p + n;
 
 	/* Compute the norm of the right-hand side for residual scaling. */
-	rhn = sqrt(creal(pardot (rhs, rhs, n)));
+	rhn = cblas_dznrm2 (n, rhs, 1);
 
 	/* Compute the inital matrix-vector product for the input guess. */
 	if (guess) scatmat (r, sol, spl, nsph, trans, shtr);
@@ -144,7 +137,7 @@ int bicgstab (complex double *sol, complex double *rhs, int guess, spscat *spl,
 	memcpy (rhat, r, n * sizeof(complex double));
 
 	/* Find the norm of the initial residual. */
-	err = sqrt(creal(pardot (r, r, n))) / rhn;
+	err = cblas_dznrm2(n, r, 1) / rhn;
 	printf ("True residual: %g\n", err);
 
 	/* Run iterations until convergence or the maximum is reached. */
@@ -177,7 +170,7 @@ int bicgstab (complex double *sol, complex double *rhs, int guess, spscat *spl,
 
 		/* Compute the scaled residual norm and stop if convergence
 		 * has been achieved. */
-		err = sqrt(creal(pardot (r, r, n))) / rhn;
+		err = cblas_dznrm2 (n, r, 1) / rhn;
 		printf ("BiCG-STAB(%0.1f): %g\n", 0.5 + i, err);
 		if (err < itc->eps) break;
 
@@ -197,7 +190,7 @@ int bicgstab (complex double *sol, complex double *rhs, int guess, spscat *spl,
 		}
 	
 		/* Compute the scaled residual norm. */
-		err = sqrt(creal(pardot (r, r, n))) / rhn;
+		err = cblas_dznrm2 (n, r, 1) / rhn;
 		printf ("BiCG-STAB(%d): %g\n", i + 1, err);
 	}
 
@@ -205,66 +198,102 @@ int bicgstab (complex double *sol, complex double *rhs, int guess, spscat *spl,
 	return i;
 }
 
-int itsolve (complex double *sol, complex double *rhs, spscat *spl, int nsph,
-		trdesc *trans, shdata *shtr, itconf *itc) {
-	int icntl[8], irc[5], lwork, info[3], n, nterm, one = 1;
-	double rinfo[2], cntl[5];
-	complex double *zwork, *tx, *ty, *tz, zone = 1.0, zzero = 0.0;
+int gmres (complex double *sol, complex double *rhs, int guess, spscat *spl,
+		int nsph, trdesc *trans, shdata *shtr, itconf *itc) {
+	int nterm = shtr->ntheta * shtr->nphi, n = nterm * nsph;
+	long lwork;
+	int i, j, one = 1, mit = itc->iter;
+	complex double *h, *v, *beta, *y;
+	complex double *vp, *hp, *s, cr, cone = 1.;
+	double rhn, err, *c;
 
-	nterm = shtr->ntheta * shtr->nphi;
-	n = nterm * nsph;
+	/* Allocate space for all required complex vectors. */
+	lwork = (mit + 1) * (mit + n + 1) + mit;
+	v = calloc (lwork, sizeof(complex double));	/* The Krylov subspace. */
+	beta = v + n * (mit + 1);		/* The least-squares RHS. */
+	h = beta + mit + 1;			/* The upper Hessenberg matrix. */
+	s = h + (mit + 1) * mit;		/* Givens rotation sines. */
 
-	lwork = itc->restart * itc->restart + itc->restart * (n + 5) + 5 * n + 2;
-	zwork = calloc (lwork, sizeof(complex double));
+	/* Allocate space for the Givens rotation cosines. */
+	c = malloc (mit * sizeof(double));
 
-	initzgmres_ (icntl, cntl);
+	/* Compute the norm of the RHS for residual scaling. */
+	rhn = cblas_dznrm2 (n, rhs, 1);
 
-	icntl[2] = 6; /* Print information to stdout. */
-	icntl[3] = 0; /* No preconditioner. */
-	icntl[4] = 0; /* Use MGS for orthogonalization. */
-	icntl[5] = 1; /* Specify an initial guess. */
-	icntl[6] = itc->iter; /* Maximum iteration count. */
+	/* Compute the initial matrix-vector product for the input guess. */
+	if (guess) scatmat (v, sol, spl, nsph, trans, shtr);
 
-	cntl[0] = itc->eps; /* Convergence tolerance. */
+	/* Subtract from the RHS to form the residual. */
+#pragma omp parallel for default(shared) private(j)
+	for (j = 0; j < n; ++j) v[j] = rhs[j] - v[j];
 
-	/* The initial guess: the previous solution. */
-	memcpy (zwork, sol, n * sizeof(complex double));
-	/* The unpreconditioned RHS. */
-	memcpy (zwork + n, rhs, n * sizeof(complex double));
+	/* Zero the initial guess if one wasn't provided. */
+	if (!guess) memset (sol, 0, n * sizeof(complex double));
 
-	do {
-		/* The GMRES driver for double complex values. */
-		drivezgmres_ (&n, &n, &(itc->restart), &lwork, zwork,
-				irc, icntl, cntl, info, rinfo);
-		if (!(info[0]) && !(irc[0])) break;
+	/* Find the norm of the initial residual. */
+	err = cblas_dznrm2(n, v, 1);
 
-		switch (irc[0]) {
-		case GMV:
-			tx = zwork + irc[1] - 1;
-			ty = zwork + irc[3] - 1;
-			scatmat (ty, tx, spl, nsph, trans, shtr);
-			break;
-		case GDP:
-			tx = zwork + irc[1] - 1;
-			ty = zwork + irc[2] - 1;
-			tz = zwork + irc[3] - 1;
+	/* Construct the initial Arnoldi vector by normalizing the residual. */
+#pragma omp parallel for default(shared) private(j)
+	for (j = 0; j < n; ++j) v[j] /= err;
 
-			/* Compute the scalar products in one pass, using
-			 * LAPACK for a matrix-vector product. */
-			zgemv_ ("C", &n, irc + 4, &zone, tx, &n,
-					ty, &one, &zzero, tz, &one);
-			break;
-		default: break;
-		}
-	} while (irc[0]);
+	/* Construct the vector beta for the minimization problem. */
+	beta[0] = err;
 
-	if (info[0]) printf ("ZGMRES: return value: %d\n", info[0]);
+	/* Report the RRE. */
+	err /= rhn;
+	printf ("True residual: %g\n", err);
 
-	memcpy (sol, zwork, n * sizeof(complex double));
+	for (i = 0; i < mit && err > itc->eps; ++i) {
+		/* Point to the working space for this iteration. */
+		vp = v + i * n;
+		hp = h + i * (mit + 1);
 
-	printf ("ZGMRES: %d iterations, %0.6g PBE, %0.6g BE.\n", info[1], rinfo[0], rinfo[1]);
+		/* Compute the next expansion of the Krylov space. */
+		scatmat (vp + n, vp, spl, nsph, trans, shtr);
+		/* Perform modified Gram-Schmidt to orthogonalize the basis. */
+		/* This also builds the Hessenberg matrix column. */
+		cmgs (vp + n, hp, v, n, i + 1);
+		/* Compute the norm of the next basis vector. */
+		hp[i + 1] = cblas_dznrm2(n, vp + n, 1);
 
-	free (zwork);
+		/* Avoid breakdown. */
+		if (cabs(hp[i + 1]) <  DBL_EPSILON) break;
 
-	return info[1];
+		/* Normalize the basis vector. */
+#pragma omp parallel for default(shared) private(j)
+		for (j = 0; j < n; ++j) vp[n + j] /= creal(hp[i + 1]);
+
+		/* Apply previous Givens rotations to the Hessenberg column. */
+		for (j = 0; j < i; ++j) 
+			zrot_ (&one, hp + j, &one, hp + j + 1, &one, c + j, s + j);
+
+		/* Compute the Givens rotation for the current iteration. */
+		zlartg_ (hp + i, hp + i + 1, c + i, s + i, &cr);
+		/* Apply the current Givens rotation to the Hessenberg column. */
+		hp[i] = cr;
+		hp[i + 1] = 0;
+		/* Perform the rotation on the vector beta. */
+		zrot_ (&one, beta + i, &one, beta + i + 1, &one, c + i, s + i);
+
+		/* Estimate the RRE for this iteration. */
+		err = cabs(beta[i + 1]) / rhn;
+		printf ("GMRES(%d): %g\n", i, err);
+	}
+
+	/* If there were any GMRES iterations, update the solution. */
+	if (i > 0) {
+		/* Compute the minimizer of the least-squares problem. */
+		cblas_ztrsv (CblasColMajor, CblasUpper, CblasNoTrans,
+				CblasNonUnit, i, h, mit + 1, beta, 1);
+		
+		/* Compute the update to the solution. */
+		cblas_zgemv (CblasColMajor, CblasNoTrans, n, i,
+				&cone, v, n, beta, 1, &cone, sol, 1);
+	}
+
+	free (v);
+	free (c);
+
+	return i;
 }

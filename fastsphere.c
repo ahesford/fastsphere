@@ -183,7 +183,7 @@ int main (int argc, char **argv) {
 	memcpy (sol, rhs, n * sizeof(complex double));
 
 	for (j = 0, nit = 1; j < itc.restart && nit > 0; ++j)
-		nit = bicgstab (sol, rhs, j, slist, nspheres, trans, &shtr, &itc);
+		nit = gmres (sol, rhs, j, slist, nspheres, trans, &shtr, &itc);
 
 	neartofar (radpat, sol, slist, nspheres, bgspt.k, &shroot, &shtr);
 
@@ -207,7 +207,7 @@ int main (int argc, char **argv) {
 
 		/* Solve for the fields scattered by inner spheres. */
 		for (j = 0, nit = 1; j < itc.restart && nit > 0; ++j)
-			nit = bicgstab (sol, rhs, j, slist, nspheres, trans, &shtr, &itc);
+			nit = gmres (sol, rhs, j, slist, nspheres, trans, &shtr, &itc);
 
 		/* Compute the far-field pattern of the internal spheres. */
 		neartofar (radpat, sol, slist, nspheres, bgspt.k, &shroot, &shtr);

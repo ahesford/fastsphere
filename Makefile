@@ -4,11 +4,12 @@ LD= gfortran
 
 OPTFLAGS= -fopenmp -O2 -march=opteron -mtune=opteron
 
-CFLAGS= $(OPTFLAGS) -I/opt/local/include -I/usr/local/include
-LFLAGS= $(OPTFLAGS) -L/opt/local/lib -L/usr/local/lib -L../spherepack31 -L../gmres
+CFLAGS= $(OPTFLAGS) $(ARCHFLAGS) -I/opt/local/include -I/usr/local/include
+LFLAGS= $(OPTFLAGS) $(ARCHFLAGS) -L/opt/local/lib -L/usr/local/lib -L../spherepack31
 
-LIBS= -lgmres -lspherepack -lgsl -lfftw3_threads -lfftw3
+LIBS= -lspherepack -lgsl -lfftw3_threads -lfftw3
 ARCHLIBS= -alapack_r -lptf77blas -lptcblas -latlas_r
+ARCHFLAGS= -D_FREEBSD
 
 OBJS= config.o fsht.o init.o scatmat.o farfield.o spbessel.o \
       shrotate.o spreflect.o translator.o util.o
@@ -20,21 +21,19 @@ fastsphere: $(OBJS) fastsphere.o spherepix.o
 	$(LD) $(LFLAGS) -o $(FASTSPHERE) fastsphere.o $(OBJS) $(LIBS) $(ARCHLIBS)
 	$(LD) $(LFLAGS) -o $(SPHEREPIX) spherepix.o $(OBJS) $(LIBS) $(ARCHLIBS)
 
-darwin: OPTFLAGS= -fopenmp -O3 -march=nocona -mtune=nocona -arch x86_64 -arch i386
+darwin: OPTFLAGS= -fopenmp -O3 -Xarch_x86_64 -march=core2 -Xarch_i386 -march=prescott
 darwin: ARCHLIBS= -framework Accelerate
+darwin: ARCHFLAGS= -D_MACOSX -arch x86_64 -arch i386
 darwin: CC= llvm-gcc
-darwin: $(OBJS) fastsphere.o spherepix.o
-	@echo "Building universal binary on Darwin."
-	$(LD) $(LFLAGS) -o $(FASTSPHERE) fastsphere.o $(OBJS) $(LIBS) $(ARCHLIBS)
-	$(LD) $(LFLAGS) -o $(SPHEREPIX) spherepix.o $(OBJS) $(LIBS) $(ARCHLIBS)
+darwin: fastsphere
+	@echo "Built universal binary on Darwin."
 
-darwin32: OPTFLAGS= -fopenmp -O3 -march=nocona -mtune=nocona -arch i386
+darwin32: OPTFLAGS= -fopenmp -O3 -march=prescott
 darwin32: ARCHLIBS= -framework Accelerate
+darwin32: ARCHFLAGS= -D_MACOSX -arch i386
 darwin32: CC= llvm-gcc
-darwin32: $(OBJS) fastsphere.o spherepix.o
-	@echo "Building universal binary on Darwin."
-	$(LD) $(LFLAGS) -o $(FASTSPHERE) fastsphere.o $(OBJS) $(LIBS) $(ARCHLIBS)
-	$(LD) $(LFLAGS) -o $(SPHEREPIX) spherepix.o $(OBJS) $(LIBS) $(ARCHLIBS)
+darwin32: darwin
+	@echo "Built 32-bit binary on Darwin."
 
 clean:
 	$(RM) $(FASTSPHERE) $(SPHEREPIX) $(OBJS) fastsphere.o spherepix.o *.core core

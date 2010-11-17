@@ -10,6 +10,39 @@
 #include "util.h"
 #include "spbessel.h"
 
+/* Use the modified Gram-Schmidt process to compute (in place) the portion of
+ * the n-dimensional vector v orthogonal to each of the nv vectors s. The
+ * projection * of the vector onto each of the basis vectors is stored in the
+ * length-nv array c. */
+int cmgs (complex double *v, complex double *c, complex double *s, int n, int nv) {
+	int i, j, k;
+	complex double *sv, cv;
+
+	for (i = 0, sv = s; i < nv; ++i, sv += n) {
+		c[i] = 0;
+		k = 0;
+
+		do {
+			cv = pardot (sv, v, n);
+			c[i] += cv;
+#pragma omp parallel for default(shared) private(j)
+			for (j = 0; j < n; ++j) v[j] -= cv * sv[j];
+		} while (cabs(cv / c[i]) > IMGS_TOL && ++k < IMGS_ITS);
+		
+	}
+
+	return n;
+}
+
+complex double pardot (complex double *x, complex double *y, int n) {
+	complex double dp;
+
+	/* Compute the local portion. */
+	cblas_zdotc_sub (n, x, 1, y, 1, &dp);
+
+	return dp;
+}
+
 /* The MSE between two vectors. */
 double rmserror (complex double *v, complex double *r, int n) {
 	double err = 0, errd = 0, e;

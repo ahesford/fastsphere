@@ -14,11 +14,17 @@
 #define ELT(n,m,lda) ((m) * (lda) + (n))
 #define IDX(n,m,lda) ((n) < 0 ? ELT(n,m+1,lda) : ELT(n,m,lda))
 
+#define IMGS_TOL 1e-3
+#define IMGS_ITS 2
+
 #ifdef _FBSD
 complex double cexp (complex double);
 complex double csin (complex double);
 complex double ccos (complex double);
 #endif /* _FBSD */
+
+int cmgs (complex double *, complex double *, complex double *, int, int);
+complex double pardot (complex double *, complex double *, int);
 
 double rmserror (complex double *, complex double *, int);
 FILE *critopen (char *, char *);
