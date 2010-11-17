@@ -8,7 +8,7 @@ CFLAGS= $(OPTFLAGS) $(ARCHFLAGS) -I/opt/local/include -I/usr/local/include
 LFLAGS= $(OPTFLAGS) $(ARCHFLAGS) -L/opt/local/lib -L/usr/local/lib -L../spherepack31
 
 LIBS= -lspherepack -lgsl -lfftw3_threads -lfftw3
-ARCHLIBS= -alapack_r -lptf77blas -lptcblas -latlas_r
+ARCHLIBS= -lalapack_r -lptf77blas -lptcblas -latlas_r
 ARCHFLAGS= -D_FREEBSD
 
 OBJS= config.o fsht.o init.o scatmat.o farfield.o spbessel.o \
