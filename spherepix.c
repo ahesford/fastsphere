@@ -55,66 +55,88 @@ int insphere (double *pt, double *cen, double r) {
 	return (dist <= r);
 }
 
-/* Contribute one-variable contribution to the Laplacian of the inverse of the
- * square root of density. The density is already rooted. */
-float dendiff (float *den, float delta, int pos, int stride, int max) {
-	float dlap;
-	int po;
+/* Compute the Laplacian of the inverse of the square root of density. The
+ * density is already rooted. Watch for edges of the domain. */
+float lapden (float *r, float *lr, float *nr, double *c, int pos, int *nelt) {
+	float dlap, nval, pval;
+	int x, y;
 
-	/* Compute the central contribution. */
-	dlap = -2.0 / den[pos];
+	x = pos % nelt[0];
+	y = pos / nelt[0];
 
-	/* Add in the outer term, if it exists. Otherwise the relative density
-	 * is uniform everywhere. */
-	po = pos + stride;
-	if (po < max) dlap += 1.0 / den[po];
-	else dlap += 1.0;
+	/* Contribution of the x offsets with bounds checking. */
+	if (x >= nelt[0] - 1) nval = 1.0;
+	else nval = 1.0 / r[pos + 1];
 
-	/* Add in the inner term, if it exists. Otherwise the relative density
-	 * is uniform everywhere. */
-	po = pos - stride;
-	if (po >= 0) dlap += 1.0 / den[po];
-	else dlap += 1.0;
+	if (x <= 0) pval = 1.0;
+	else pval = 1.0 / r[pos - 1];
 
-	/* Divide out the step size. */
-	dlap /= (delta * delta);
+	dlap = (pval + nval - 2.0 / r[pos]) / (c[0] * c[0]);
+
+	/* Contribution of the y offsets with bounds checking. */
+	if (y >= nelt[1] - 1) nval = 1.0;
+	else nval = 1.0 / r[pos + nelt[0]];
+
+	if (y <= 0) pval = 1.0;
+	else pval = 1.0 / r[pos - nelt[0]];
+
+	dlap += (pval + nval - 2.0 / r[pos]) / (c[1] * c[1]);
+
+	/* Contribution of the z offsets with bounds checking. */
+	if (!nr) nval = 1.0;
+	else nval = 1.0 / nr[pos];
+
+	if (!lr) pval = 1.0;
+	else pval = 1.0 / lr[pos];
+
+	dlap += (pval + nval - 2.0 / r[pos]) / (c[2] * c[2]);
 
 	return dlap;
 }
 
-/* Build the contrast map. */
-int bldcontrast (complex float *ct, int *nelt, double *bmin, double *bmax,
-		sptype *bgs, spscat *slist, int nsphere) {
-	double cell[3], zero[3] = {0, 0, 0};
-	int ntot = nelt[0] * nelt[1] * nelt[2];
-	float *density;
+int augct (complex float *k, float *r, float *lr, float *nr, int *nelt, double *cell) {
+	int i, npx = nelt[0] * nelt[1];
+	float dval;
 
-	/* Allocate a density map. */
-	density = malloc (ntot * sizeof(float));
+#pragma omp parallel for default(shared) private(i,dval)
+	for (i = 0; i < npx; ++i) {
+		/* Compute the Laplacian of the inverse square root of the density. */
+		dval = lapden (r, lr, nr, cell, i, nelt);
+		/* Scale by density square root and normalize by wave number. */
+		dval *= r[i] / (4.0 * M_PI * M_PI);
 
-	cell[0] = (bmax[0] - bmin[0]) / nelt[0];
-	cell[1] = (bmax[1] - bmin[1]) / nelt[1];
-	cell[2] = (bmax[2] - bmin[2]) / nelt[2];
+		/* Subtract the density term from the contrast. */
+		k[i] -= dval;
+	}
+
+	return npx;
+}
+
+/* Build the contrast and density maps for a slab. */
+int bldct (complex float *ct, float *density, int *nelt, double *blim,
+		double *cell, sptype *bgs, spscat *slist, int nsphere, int zidx) {
+	double zero[3] = {0, 0, 0};
+	int ntot = nelt[0] * nelt[1];
 
 #pragma omp parallel default(shared)
-	{
+{
 	double cen[3];
-	int i, j, idx[3];
+	int i, j, idx[2];
 	complex float ctval;
 	float dval;
+	
+	cen[2] = blim[2] + ((double)zidx + 0.5) * cell[2];
 
 	/* Build the density-free contrast and the density map. */
 #pragma omp for
 	for (i = 0; i < ntot; ++i) {
 		/* Find the cell index. */
 		idx[0] = i % nelt[0];
-		idx[1] = (i / nelt[0]) % nelt[1];
-		idx[2] = i / (nelt[0] * nelt[1]);
+		idx[1] = i / nelt[0];
 
 		/* Find the cell center. */
-		cen[0] = bmin[0] + ((double)idx[0] + 0.5) * cell[0];
-		cen[1] = bmin[1] + ((double)idx[1] + 0.5) * cell[1];
-		cen[2] = bmin[2] + ((double)idx[2] + 0.5) * cell[2];
+		cen[0] = blim[0] + ((double)idx[0] + 0.5) * cell[0];
+		cen[1] = blim[1] + ((double)idx[1] + 0.5) * cell[1];
 
 		/* Set the background contrast. */
 		ctval = 2 * M_PI;
@@ -141,37 +163,17 @@ int bldcontrast (complex float *ct, int *nelt, double *bmin, double *bmax,
 		ct[i] = ctval;
 		density[i] = sqrt(dval);
 	}
-
-	/* Now compute the density contribution to the contrast. */
-#pragma omp for
-	for (i = 0; i < ntot; ++i) {
-		/* The x derivatives. */
-		dval = dendiff (density, cell[0], i, 1, ntot);
-		/* The y derivatives. */
-		dval += dendiff (density, cell[1], i, nelt[0], ntot);
-		/* The z derivatives. */
-		dval += dendiff (density, cell[2], i, nelt[0] * nelt[1], ntot);
-
-		/* Multiply by density square root and normalize by background
-		 * wave number. */
-		dval *= density[i] / (4.0 * M_PI * M_PI);
-
-		/* Correct the contrast. */
-		ct[i] -= dval;
-	}
-	}
-
-	free (density);
-
+}
 	return ntot;
 }
 
 int main (int argc, char **argv) {
-	int nspheres, nsptype, n, i;
+	int nspheres, nsptype, n, i, npx;
 	int autobox = 1, nelt[3] = {100, 100, 100};
-	double boxlim[6];
+	double boxlim[6], cell[3];
 
-	complex float *contrast;
+	complex float *k, *nk, *kslab;
+	float *density, *lr, *r, *nr;
 
 	FILE *fptr = NULL;
 	char *inname = NULL, *outname = NULL, ch;
@@ -199,16 +201,24 @@ int main (int argc, char **argv) {
 					boxlim, boxlim + 1, boxlim + 2,
 					boxlim + 3, boxlim + 4, boxlim + 5);
 
-			if (autobox == 3) {
+			switch (autobox) {
+			case 1:
+				/* Set symmetric bounds from one dimension. */
+				boxlim[0] = boxlim[1] = boxlim[2] = -ABS(boxlim[0]);
+				boxlim[3] = boxlim[4] = boxlim[5] =  ABS(boxlim[0]);
+				break;
+			case 3:
 				/* Set symmetric bounds from one corner. */
 				boxlim[0] = -(boxlim[3] = ABS(boxlim[0]));
 				boxlim[1] = -(boxlim[4] = ABS(boxlim[1]));
 				boxlim[2] = -(boxlim[5] = ABS(boxlim[2]));
-			} else if (autobox == 1) {
-				/* Set symmetric bounds from one dimension. */
-				boxlim[0] = boxlim[1] = boxlim[2] = -ABS(boxlim[0]);
-				boxlim[3] = boxlim[4] = boxlim[5] =  ABS(boxlim[0]);
-			} else if (autobox != 6) usage ();
+				break;
+			case 6:
+				/* Nothing to te done for fully specified box. */
+				break;
+			default:
+				usage ();
+			}
 
 			/* Don't automatically specify limits. */
 			autobox = 0;
@@ -252,21 +262,62 @@ int main (int argc, char **argv) {
 		}
 	}
 
-	/* Allocate the contrast map. */
-	contrast = malloc (nelt[0] * nelt[1] * nelt[2] * sizeof(complex float));
+	/* Compute the cell dimensions. */
+	cell[0] = (boxlim[3] - boxlim[0]) / nelt[0];
+	cell[1] = (boxlim[4] - boxlim[1]) / nelt[1];
+	cell[2] = (boxlim[5] - boxlim[2]) / nelt[2];
 
-	bldcontrast (contrast, nelt, boxlim, boxlim + 3, bgptr, slist, nspheres);
+	npx = nelt[0] * nelt[1];
+
+	/* Allocate the contrast and density map for a slab. */
+	kslab = malloc (2 * npx * sizeof(complex float));
+	density = malloc (3 * npx * sizeof(float));
+
+	/* Point to the slab data stores. */
+	k = kslab;
+	nk = k + npx;
+	lr = NULL;
+	r = density;
+	nr = r + npx;
 
 	if (!outname) fptr = stdout;
 	else fptr = critopen (outname, "w");
 	fprintf (stderr, "Writing contrast file.\n");
-	writebvec (fptr, contrast, 3, nelt);
+
+	/* Write the header. */
+	fwrite (nelt, sizeof(int), 3, fptr);
+
+	/* Construct the first slab of data. */
+	bldct (k, r, nelt, boxlim, cell, bgptr, slist, nspheres, 0);
+
+	for (i = 1; i < nelt[2]; ++i) {
+		/* Construct the next slab of data. */
+		bldct (nk, nr, nelt, boxlim, cell, bgptr, slist, nspheres, i);
+
+		/* Build and write the previous slab. */
+		augct (k, r, lr, nr, nelt, cell);
+		fwrite (k, sizeof(complex float), npx, fptr);
+
+		/* Update the media pointers. */
+		k = kslab + (i % 2) * npx;
+		nk = kslab + ((i + 1) % 2) * npx;
+
+		lr = density + ((i - 1) % 3) * npx;
+		r = density + (i % 3) * npx;
+		nr = density + ((i + 1) % 3) * npx;
+	}
+
+	/* Build and write the last slab. */
+	augct (k, r, lr, NULL, nelt, cell);
+	fwrite (k, sizeof(complex float), npx, fptr);
+
 	fclose (fptr);
 
 	clrspheres (sparms, nsptype);
 	free (exct.mag);
 	free (exct.theta);
-	free (contrast);
+	free (kslab);
+	free (density);
 
 	return EXIT_SUCCESS;
 }
