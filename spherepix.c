@@ -14,33 +14,19 @@
 #include "farfield.h"
 #include "spreflect.h"
 
-void usage () {
-	fprintf (stderr, "USAGE: spherepix [-h] [-e] [-m mx [my mz [Mx My Mz]]]\n\t\t[-n Nx [Ny Nz]] [-i input] [-o output]\n\n");
-	fprintf (stderr, "\t-h\tPrint this message and exit\n");
-	fprintf (stderr, "\t-e\tSpecify the existence of an enclosing sphere in the input file\n");
-	fprintf (stderr, "\t-m\tSpecify the lower and upper box corner in wavelengths\n\t\t(default: tight)\n");
-	fprintf (stderr, "\t-n\tSpecify the number of pixels in each dimension (default: 100)\n");
-	fprintf (stderr, "\t-i\tSpecify configuration file path (default: stdin)\n");
-	fprintf (stderr, "\t-o\tSpecify output contrast file path (default: stdout)\n");
+void usage (char *name) {
+	fprintf (stderr, "USAGE: %s [-h] [-e] [-m mx [my mz [Mx My Mz]]] [-n Nx [Ny Nz]] [input [output]]\n", name);
+	fprintf (stderr, "\t-h: Print this message and exit\n");
+	fprintf (stderr, "\t-e: Specify the existence of an enclosing sphere in the input file\n");
+	fprintf (stderr, "\t-m: Specify the lower and upper box corner in wavelengths\n\t\t(default: tight)\n");
+	fprintf (stderr, "\t-n: Specify the number of pixels in each dimension (default: 100)\n");
+	fprintf (stderr, "\tInput file name may be '-' or omitted for stdin\n");
+	fprintf (stderr, "\tOutput file name may be '-' or omitted for stdout\n");
 
 	exit (EXIT_FAILURE);
 }
 
-int writebvec (FILE *out, complex float *vec, int ndim, int *nelts) {
-	int len, i;
-
-	len = nelts[0];
-	for (i = 1; i < ndim; ++i) len *= nelts[i];
-
-	/* Write the size of the vector. */
-	fwrite (nelts, sizeof(int), ndim, out);
-	/* Write the vector itself. */
-	fwrite (vec, sizeof(complex float), len, out);
-
-	return len;
-}
-
-/* Determin if a point is inside a sphere. */
+/* Determine if a point is inside a sphere. */
 int insphere (double *pt, double *cen, double r) {
 	double dist, dx[3];
 
@@ -176,7 +162,7 @@ int main (int argc, char **argv) {
 	float *density, *lr, *r, *nr;
 
 	FILE *fptr = NULL;
-	char *inname = NULL, *outname = NULL, ch;
+	char ch, *progname;
 
 	sptype *sparms, *bgptr = NULL, bgspt;
 	spscat *slist;
@@ -184,14 +170,11 @@ int main (int argc, char **argv) {
 	exctparm exct;
 	itconf itc;
 
-	while ((ch = getopt (argc, argv, "hi:o:em:n:")) != -1) {
+	/* Store the name used to invoke the program. */
+	progname = argv[0];
+
+	while ((ch = getopt (argc, argv, "hem:n:")) != -1) {
 		switch (ch) {
-		case 'i':
-			inname = optarg;
-			break;
-		case 'o':
-			outname = optarg;
-			break;
 		case 'e':
 			bgptr = &bgspt;
 			break;
@@ -217,7 +200,7 @@ int main (int argc, char **argv) {
 				/* Nothing to te done for fully specified box. */
 				break;
 			default:
-				usage ();
+				usage (progname);
 			}
 
 			/* Don't automatically specify limits. */
@@ -227,18 +210,24 @@ int main (int argc, char **argv) {
 			i = sscanf (optarg, "%d %d %d", nelt, nelt + 1, nelt + 2);
 
 			if (i == 1) nelt[1] = nelt[2] = nelt[0];
-			else if (i != 3) usage ();
+			else if (i != 3) usage (progname);
 			break;
 		case 'h': default:
-			usage ();
+			usage (progname);
 		}
 	}
 
-	if (!inname) fptr = stdin;
-	else fptr = critopen (inname, "r");
+	/* Point argv to the input and output specifications. */
+	argc -= optind;
+	argv += optind;
+
+	if (argc < 1 || !strcmp("-", argv[0])) fptr = stdin;
+	else fptr = critopen (argv[0], "r");
 
 	readcfg (fptr, &nspheres, &nsptype, &sparms, bgptr, &slist, &bg, &exct, &itc);
 	fprintf (stderr, "Parsed configuration for %d spheres at %g MHz\n", nspheres, exct.f / 1e6);
+
+	fclose (fptr);
 
 	/* Automatically set box dimensions if necessary. */
 	if (autobox && bgptr) {
@@ -280,8 +269,8 @@ int main (int argc, char **argv) {
 	r = density;
 	nr = r + npx;
 
-	if (!outname) fptr = stdout;
-	else fptr = critopen (outname, "w");
+	if (argc < 2 || !strcmp("-", argv[1])) fptr = stdout;
+	else fptr = critopen (argv[1], "w");
 	fprintf (stderr, "Writing contrast file.\n");
 
 	/* Write the header. */
