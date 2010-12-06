@@ -221,3 +221,62 @@ int shincident (int deg, complex double *a, int lda,
 
 	return deg;
 }
+
+static int lgval (double *p, double *dp, double t, int m) {
+	double p0 = 1.0, p1 = t;
+	int k;
+
+	/* Set values explicitly for low orders. */
+	if (m < 1) {
+		*p = 1.0;
+		*dp = 0.0;
+		return m;
+	} else if (m < 2) {
+		*p = t;
+		*dp = 1.0;
+		return m;
+	}
+
+	/* Otherwise compute the values explicitly. */
+	for (k = 1; k < m; ++k) {
+		*p = ((2.0 * k + 1.0) * t * p1 - k * p0) / (1.0 + k);
+		p0 = p1; p1 = *p;
+	}
+
+	*dp = m * (p0 - t * p1) / (1.0 - t * t);
+
+	return m;
+}
+
+int gauleg (int m, double *nodes, double *weights) {
+	int i, j, nroots = (m + 1) / 2;
+	double t, p, dp, dt;
+	const int maxit = 100;
+	const double tol = 1.0e-14;
+
+#pragma omp parallel for default(shared) private(i,j,t,p,dp,dt)
+	for (i = 0; i < nroots; ++i) {
+		t = cos (M_PI * (i + 0.75) / (m + 0.5));
+
+		for (j = 0; j < maxit; ++j) {
+			/* Compute the value of the Legendre polynomial. */
+			lgval (&p, &dp, t, m);
+
+			/* Perform a Newton-Raphson update. */
+			dt = -p / dp;
+			t += dt;
+
+			/* Break if convergence has been achieved. */
+			if (fabs(dt) < tol) break;
+		}
+
+		/* Update the nodes and weights. */
+		nodes[i] = t;
+		nodes[m - i - 1] = -t;
+
+		weights[i] = 2.0 / (1.0 - t * t) / (dp * dp);
+		weights[m - i - 1] = weights[i];
+	}
+
+	return 0;
+}

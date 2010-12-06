@@ -10,8 +10,7 @@
 #include <gsl/gsl_sf_legendre.h>
 
 #include "fsht.h"
-
-void gaqd_ (int *, double *, double *, double *, int *, int *);
+#include "util.h"
 
 int fshtinit (shdata *dat, int deg, int ntheta, int nphi) {
 	int ierr;
@@ -29,8 +28,11 @@ int fshtinit (shdata *dat, int deg, int ntheta, int nphi) {
 	else dat->nphi = nphi;
 
 	/* Allocate the theta points and weights. */
-	dat->theta = malloc (2 * dat->ntheta * sizeof(double));
+	dat->theta = calloc (2 * dat->ntheta, sizeof(double));
 	dat->weights = dat->theta + dat->ntheta;
+
+	/* Find the Legendre-Gauss quadrature points. */
+	gauleg (dat->ntheta, dat->theta, dat->weights);
 
 	/* Temporarily allocate an FFT data buffer for planning. */
 	fftbuf = fftw_malloc (dat->ntheta * dat->nphi * sizeof(complex double));
@@ -47,10 +49,6 @@ int fshtinit (shdata *dat, int deg, int ntheta, int nphi) {
 	/* The FFT buffer is no longer necessary, and will be reallocated
 	 * on-the-fly when it is needed later. */
 	fftw_free (fftbuf);
-
-	/* Find the Legendre-Gauss quadrature points. */
-	gaqd_ (&(dat->ntheta), dat->theta, dat->weights, NULL, NULL, &ierr);
-	if (ierr) return ierr;
 
 	return 0;
 }
@@ -102,7 +100,7 @@ int shscale (complex double *samp, shdata *dat, int sgn) {
  * and phi into SH coefficients. */
 int ffsht (complex double *samp, shdata *dat, int maxdeg) {
 	int i, j, k, aoff, npk, dm1, deg = maxdeg;
-	double cth, pc, scale, *lgvals;
+	double pc, scale, *lgvals;
 	complex double *beta, *fftbuf;
 
 	/* Copy the samples to the FFT buffer and perform the FFT. */
@@ -125,12 +123,11 @@ int ffsht (complex double *samp, shdata *dat, int maxdeg) {
 	dm1 = deg - 1;
 
 	for (i = 0; i < dat->ntheta; ++i) {
-		/* Some scale factors that will be required. */
+		/* The scale factor that will be required. */
 		scale = 2 * M_PI * dat->weights[i] / dat->nphi;
-		cth = cos(dat->theta[i]);
 
 		/* Build the Legendre polynomials that we need. */
-		gsl_sf_legendre_sphPlm_array (dm1, 0, cth, lgvals);
+		gsl_sf_legendre_sphPlm_array (dm1, 0, dat->theta[i], lgvals);
 
 		/* Handle m = 0 for all degrees. */
 		for (j = 0; j < deg; ++j)
@@ -139,7 +136,7 @@ int ffsht (complex double *samp, shdata *dat, int maxdeg) {
 		/* Handle nonzero orders for all relevant degrees. */
 		for (k = 1; k < deg; ++k) {
 			npk = dat->nphi - k;
-			gsl_sf_legendre_sphPlm_array (dm1, k, cth, lgvals);
+			gsl_sf_legendre_sphPlm_array (dm1, k, dat->theta[i], lgvals);
 			for (j = k; j < deg; ++j) {
 				aoff = j * dat->nphi;
 				pc = scale * lgvals[j - k];
@@ -163,7 +160,7 @@ int ffsht (complex double *samp, shdata *dat, int maxdeg) {
  * function in theta and phi. */
 int ifsht (complex double *samp, shdata *dat, int maxdeg) {
 	int i, j, k, aoff, npk, dm1, n, deg = maxdeg;
-	double cth, *lgvals;
+	double *lgvals;
 	complex double *beta, *fftbuf;
 
 	/* The non-polar samples. */
@@ -183,18 +180,15 @@ int ifsht (complex double *samp, shdata *dat, int maxdeg) {
 	dm1 = deg - 1;
 
 	for (i = 0; i < dat->ntheta; ++i) {
-		/* Some factors that will be used several times. */
-		cth = cos(dat->theta[i]);
-
 		/* Build the Legendre polynomials that we need. */
-		gsl_sf_legendre_sphPlm_array (dm1, 0, cth, lgvals);
+		gsl_sf_legendre_sphPlm_array (dm1, 0, dat->theta[i], lgvals);
 
 		for (j = 0; j < deg; ++j)
 			beta[0] += samp[j * dat->nphi] * lgvals[j];
 
 		for (k = 1; k < deg; ++k) {
 			npk = dat->nphi - k;
-			gsl_sf_legendre_sphPlm_array (dm1, k, cth, lgvals);
+			gsl_sf_legendre_sphPlm_array (dm1, k, dat->theta[i], lgvals);
 			for (j = k; j < deg; ++j) {
 				aoff = j * dat->nphi;
 				/* The positive-order coefficient. */

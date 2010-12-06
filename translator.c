@@ -18,10 +18,10 @@ complex double transang (int ord, complex double *hfn, double *lgwork,
 	complex double tsol = 0;
 	int i;
 
-	st = sin(theta);
+	st = sin(acos(theta));
 	s[0] = st * cos(phi);
 	s[1] = st * sin(phi);
-	s[2] = cos(theta);
+	s[2] = theta;
 
 	sds = DVDOT(s,sdir);
 

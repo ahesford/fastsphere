@@ -37,4 +37,6 @@ complex double buildkvec (double, double);
 int copysh (int, complex double *, int, complex double *, int);
 int shradial (int, complex double *, int, complex double, double);
 int shincident (int, complex double *, int, complex double, double, double);
+
+int gauleg (int, double *, double *);
 #endif /* __UTIL_H_ */

@@ -1,13 +1,13 @@
 CC= gcc
 RM= rm -f
-LD= gfortran
+LD= $(CC)
 
 OPTFLAGS= -fopenmp -O2 -march=opteron -mtune=opteron
 
 CFLAGS= $(OPTFLAGS) $(ARCHFLAGS) -I/opt/local/include -I/usr/local/include
-LFLAGS= $(OPTFLAGS) $(ARCHFLAGS) -L/opt/local/lib -L/usr/local/lib -L../spherepack31
+LFLAGS= $(OPTFLAGS) $(ARCHFLAGS) -L/opt/local/lib -L/usr/local/lib
 
-LIBS= -lspherepack -lgsl -lfftw3_threads -lfftw3
+LIBS= -lgsl -lfftw3_threads -lfftw3
 ARCHLIBS= -lalapack_r -lptf77blas -lptcblas -latlas_r
 ARCHFLAGS= -D_FREEBSD
 

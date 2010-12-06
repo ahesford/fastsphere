@@ -63,8 +63,8 @@ int neartofar (complex double *vout, complex double *vin, spscat *slist,
 
 		/* Add the phase-shifted sphere pattern to the total pattern. */
 		for (j = 0, l = 0; j < shout->ntheta; ++j) {
-			s[2] = cos((shout->theta)[j]);
-			sth = sin((shout->theta)[j]);
+			s[2] = shout->theta[j];
+			sth = sin(acos(shout->theta[j]));
 			for (k = 0; k < shout->nphi; ++k, ++l) {
 				phi = k * dphi;
 				s[0] = sth * cos(phi);
@@ -113,8 +113,8 @@ int fartonear (complex double *vout, complex double *vin, spscat *slist,
 
 		/* Shift the phase of the sphere pattern. */
 		for (j = 0, l = 0; j < shin->ntheta; ++j) {
-			s[2] = cos((shin->theta)[j]);
-			sth = sin((shin->theta)[j]);
+			s[2] = shin->theta[j];
+			sth = sin(acos(shin->theta[j]));
 			for (k = 0; k < shin->nphi; ++k, ++l) {
 				phi = k * dphi;
 				s[0] = sth * cos(phi);
