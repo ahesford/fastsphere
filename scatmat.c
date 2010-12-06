@@ -258,7 +258,10 @@ int gmres (complex double *sol, complex double *rhs, int guess, spscat *spl,
 		hp[i + 1] = cblas_dznrm2(n, vp + n, 1);
 
 		/* Avoid breakdown. */
-		if (cabs(hp[i + 1]) <  DBL_EPSILON) break;
+		if (cabs(hp[i + 1]) <  DBL_EPSILON) {
+			++i;
+			break;
+		}
 
 		/* Normalize the basis vector. */
 #pragma omp parallel for default(shared) private(j)
