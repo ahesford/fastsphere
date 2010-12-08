@@ -240,7 +240,7 @@ int main (int argc, char **argv) {
 
 		/* Back to a far-field signature if the harmonic
 		 * representation won't be needed again. */
-		if (!mslen && ntheta <= shroot.ntheta)
+		if (mslen <= 0 && ntheta <= shroot.ntheta)
 			ifsht (radpat, &shroot, 0);
 	}
 
