@@ -12,7 +12,7 @@
 #include "fsht.h"
 #include "util.h"
 
-int fshtinit (shdata *dat, int deg, int ntheta, int nphi) {
+int fshtinit (shdata *dat, int deg, int ntheta, int nphi, int measfft) {
 	int ierr;
 	complex double *fftbuf;
 
@@ -40,11 +40,11 @@ int fshtinit (shdata *dat, int deg, int ntheta, int nphi) {
 	/* Plan the forward and inverse transforms. */
 	dat->fplan = fftw_plan_many_dft (1, &(dat->nphi), dat->ntheta, fftbuf,
 			&(dat->nphi), 1, dat->nphi, fftbuf, &(dat->nphi), 1,
-			dat->nphi, FFTW_FORWARD, FFTW_MEASURE);
+			dat->nphi, FFTW_FORWARD, measfft ? FFTW_MEASURE : FFTW_ESTIMATE);
 
 	dat->bplan = fftw_plan_many_dft (1, &(dat->nphi), dat->ntheta, fftbuf,
 			&(dat->nphi), 1, dat->nphi, fftbuf, &(dat->nphi), 1,
-			dat->nphi, FFTW_BACKWARD, FFTW_MEASURE);
+			dat->nphi, FFTW_BACKWARD, measfft ? FFTW_MEASURE : FFTW_ESTIMATE);
 
 	/* The FFT buffer is no longer necessary, and will be reallocated
 	 * on-the-fly when it is needed later. */

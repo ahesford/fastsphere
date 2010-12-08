@@ -55,13 +55,13 @@ int main (int argc, char **argv) {
 	spscat *slist;
 	bgtype bg;
 	exctparm exct;
-	shdata shtr, shroot;
+	shdata shtr, shroot, shinterp;
 	itconf itc;
 	trdesc *trans;
 	double mslen = -1, err;
 
 	complex double *rhs, *sol, *radpat, *finc,
-		*oinc = NULL, *lastwv = NULL;
+		*oinc = NULL, *lastwv = NULL, *rpinterp = NULL;
 
 	FILE *fptr = NULL;
 	char *inname = NULL, *outname = NULL, *rhsname = NULL, ch;
@@ -123,12 +123,14 @@ int main (int argc, char **argv) {
 	}
 
 	if (nbounce > 0) {
-		esbdinit (&bgspt, bg.k, 1.0, &shroot, ntheta);
+		/* Use the lowest-possible sampling rate for the enclosing sphere. */
+		esbdinit (&bgspt, bg.k, 1.0, &shroot, 0);
 		fprintf (stderr, "Built data for enclosing sphere\n");
 	} else {
+		/* Use the greater of the estimated root bandwidth or that requested. */
 		i = rootorder (slist, nspheres, bg.k);
 		ntheta = MAX (i + (i % 2) + 1, ntheta);
-		fshtinit (&shroot, i, ntheta, 2 * ntheta);
+		fshtinit (&shroot, i, ntheta, 2 * ntheta, 1);
 		fprintf (stderr, "Built spherical harmonic data for far-field\n");
 	}
 
@@ -236,8 +238,10 @@ int main (int argc, char **argv) {
 		/* Now add in the reflected standing-wave coefficients. */
 		spreflect (radpat, finc, bgspt.reflect + shroot.deg, shroot.deg, shroot.nphi, 1, 1);
 
-		/* Back to a far-field signature. */
-		ifsht (radpat, &shroot, 0);
+		/* Back to a far-field signature if the harmonic
+		 * representation won't be needed again. */
+		if (!mslen && ntheta <= shroot.ntheta)
+			ifsht (radpat, &shroot, 0);
 	}
 
 	/* Measure at a finite distance, if desired. */
@@ -246,7 +250,8 @@ int main (int argc, char **argv) {
 		mslen *= exct.f / bg.cabs;
 		fprintf (stderr, "Computing scattered field at radius %g wavelengths\n", mslen);
 
-		ffsht (radpat, &shroot, 0);
+		/* Forward transform if necessary. */
+		if (nbounce <= 0) ffsht (radpat, &shroot, 0);
 
 		/* Scale the SH coefficients appropriately. */
 		shscale (radpat, &shroot, 1);
@@ -254,14 +259,38 @@ int main (int argc, char **argv) {
 		/* Now include the radial factor in the SH coefficients. */
 		shradial (shroot.deg, radpat, shroot.nphi, bg.k, mslen);
 
-		/* Back to angular representation. */
-		ifsht (radpat, &shroot, 0);
+		/* To angular representation unless interpolation is needed. */
+		if (nbounce <= 0 || ntheta <= shroot.ntheta)
+			ifsht (radpat, &shroot, 0);
+	}
+
+	/* Interpolate the far-field pattern, if the root transform
+	 * contains fewer points than those requested. In such cases,
+	 * the field representation is already harmonic. */
+	if (nbounce > 0 && ntheta > shroot.ntheta) {
+		fprintf (stderr, "Interpolating for bandwidth %d\n", ntheta);
+		/* Initialize the spherical harmonic transform for interpolation. */
+		fshtinit (&shinterp, shroot.deg, ntheta, 2 * ntheta, 0);
+
+		/* Allocate the expanded far-field pattern. */
+		rpinterp = calloc (shinterp.ntheta * shinterp.nphi, sizeof(complex double));
+
+		/* Copy the harmonic expansion for interpolation. */
+		copysh (shroot.deg, rpinterp, shinterp.nphi, radpat, shroot.nphi);
+
+		/* Perform the inverse harmonic transform to do the interpolation. */
+		ifsht (rpinterp, &shinterp, 0);
 	}
 
 	if (!outname) fptr = stdout;
 	else fptr = critopen (outname, "w");
-	fprintf (stderr, "Writing solution for %d theta and %d phi samples\n", shroot.ntheta, shroot.nphi);
-	writebvec (fptr, radpat, shroot.nphi, shroot.ntheta);
+	if (rpinterp) {
+		fprintf (stderr, "Writing solution for %d theta and %d phi samples\n", shinterp.ntheta, shinterp.nphi);
+		writebvec (fptr, rpinterp, shinterp.nphi, shinterp.ntheta);
+	} else {
+		fprintf (stderr, "Writing solution for %d theta and %d phi samples\n", shroot.ntheta, shroot.nphi);
+		writebvec (fptr, radpat, shroot.nphi, shroot.ntheta);
+	}
 	fclose (fptr);
 
 	clrspheres (sparms, nsptype);
@@ -275,6 +304,12 @@ int main (int argc, char **argv) {
 
 	free (rhs);
 	free (radpat);
+
+	if (rpinterp) {
+		fshtfree (&shinterp);
+		free (rpinterp);
+	}
+
 	if (nbounce > 0) free (oinc);
 
 	if (mxthd > 1) fftw_cleanup_threads ();

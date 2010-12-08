@@ -25,7 +25,7 @@ int sphinit (sptype *spt, int nspt, complex double bgk,
 	if (nt < 1) nt = deg + (deg % 2) + 1;
 
 	/* Initialize the SH transform data. */
-	fshtinit (shtr, deg, nt, 2 * nt);
+	fshtinit (shtr, deg, nt, 2 * nt, 1);
 
 	/* Initialize and populate the SH reflection coefficients. */
 #pragma omp parallel for private(i,sptr) default(shared)
@@ -51,7 +51,7 @@ int esbdinit (sptype *sbd, complex double bgk, double bgrho, shdata *shtr, int n
 	nang = MAX(sbd->deg + (sbd->deg % 2) + 1, nang);
 
 	/* Initialize the SH transform data. */
-	fshtinit (shtr, sbd->deg, nang, 2 * nang);
+	fshtinit (shtr, sbd->deg, nang, 2 * nang, 1);
 
 	/* Allocate space for reflection and transmission coefficients. */
 	sbd->reflect = calloc (4 * sbd->deg, sizeof(complex double));
