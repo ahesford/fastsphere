@@ -14,6 +14,14 @@
 #include "farfield.h"
 #include "spreflect.h"
 
+#ifdef DOUBLEPREC
+typedef double real;
+typedef complex double cplx;
+#else
+typedef float real;
+typedef complex float cplx;
+#endif
+
 void usage (char *name) {
 	fprintf (stderr, "USAGE: %s [-h] [-e] [-m mx [my mz [Mx My Mz]]] [-n Nx [Ny Nz]] [input [output]]\n", name);
 	fprintf (stderr, "\t-h: Print this message and exit\n");
@@ -43,8 +51,8 @@ int insphere (double *pt, double *cen, double r) {
 
 /* Compute the Laplacian of the inverse of the square root of density. The
  * density is already rooted. Watch for edges of the domain. */
-float lapden (float *r, float *lr, float *nr, double *c, int pos, int *nelt) {
-	float dlap, nval, pval;
+real lapden (real *r, real *lr, real *nr, double *c, int pos, int *nelt) {
+	real dlap, nval, pval;
 	int x, y;
 
 	x = pos % nelt[0];
@@ -80,9 +88,9 @@ float lapden (float *r, float *lr, float *nr, double *c, int pos, int *nelt) {
 	return dlap;
 }
 
-int augct (complex float *k, float *r, float *lr, float *nr, int *nelt, double *cell) {
+int augct (cplx *k, real *r, real *lr, real *nr, int *nelt, double *cell) {
 	int i, npx = nelt[0] * nelt[1];
-	float dval;
+	real dval;
 
 #pragma omp parallel for default(shared) private(i,dval)
 	for (i = 0; i < npx; ++i) {
@@ -99,7 +107,7 @@ int augct (complex float *k, float *r, float *lr, float *nr, int *nelt, double *
 }
 
 /* Build the contrast and density maps for a slab. */
-int bldct (complex float *ct, float *density, int *nelt, double *blim,
+int bldct (cplx *ct, real *density, int *nelt, double *blim,
 		double *cell, sptype *bgs, spscat *slist, int nsphere, int zidx) {
 	double zero[3] = {0, 0, 0};
 	int ntot = nelt[0] * nelt[1];
@@ -108,8 +116,8 @@ int bldct (complex float *ct, float *density, int *nelt, double *blim,
 {
 	double cen[3];
 	int i, j, idx[2];
-	complex float ctval;
-	float dval;
+	cplx ctval;
+	real dval;
 	
 	cen[2] = blim[2] + ((double)zidx + 0.5) * cell[2];
 
@@ -130,15 +138,15 @@ int bldct (complex float *ct, float *density, int *nelt, double *blim,
 
 		/* Check if the point is in an enclosing sphere, if it exists. */
 		if (bgs && insphere (cen, zero, bgs->r)) {
-			ctval = (complex float)(bgs->k);
-			dval = (float)(bgs->rho);
+			ctval = (cplx)(bgs->k);
+			dval = (real)(bgs->rho);
 		}
 
 		/* If the point is in an inner sphere, set the wave number. */
 		for (j = 0; j < nsphere; ++j) 
 			if (insphere (cen, slist[j].cen, slist[j].spdesc->r)) {
-				ctval = (complex float)(slist[j].spdesc->k);
-				dval = (float)(slist[j].spdesc->rho);
+				ctval = (cplx)(slist[j].spdesc->k);
+				dval = (real)(slist[j].spdesc->rho);
 			}
 
 		/* Convert the wave number to the contrast. */
@@ -158,8 +166,8 @@ int main (int argc, char **argv) {
 	int autobox = 1, nelt[3] = {100, 100, 100};
 	double boxlim[6], cell[3];
 
-	complex float *k, *nk, *kslab;
-	float *density, *lr, *r, *nr;
+	cplx *k, *nk, *kslab;
+	real *density, *lr, *r, *nr;
 
 	FILE *fptr = NULL;
 	char ch, *progname;
@@ -259,8 +267,8 @@ int main (int argc, char **argv) {
 	npx = nelt[0] * nelt[1];
 
 	/* Allocate the contrast and density map for a slab. */
-	kslab = malloc (2 * npx * sizeof(complex float));
-	density = malloc (3 * npx * sizeof(float));
+	kslab = malloc (2 * npx * sizeof(cplx));
+	density = malloc (3 * npx * sizeof(real));
 
 	/* Point to the slab data stores. */
 	k = kslab;
@@ -285,7 +293,7 @@ int main (int argc, char **argv) {
 
 		/* Build and write the previous slab. */
 		augct (k, r, lr, nr, nelt, cell);
-		fwrite (k, sizeof(complex float), npx, fptr);
+		fwrite (k, sizeof(cplx), npx, fptr);
 
 		/* Update the media pointers. */
 		k = kslab + (i % 2) * npx;
@@ -298,7 +306,7 @@ int main (int argc, char **argv) {
 
 	/* Build and write the last slab. */
 	augct (k, r, lr, NULL, nelt, cell);
-	fwrite (k, sizeof(complex float), npx, fptr);
+	fwrite (k, sizeof(cplx), npx, fptr);
 
 	fclose (fptr);
 

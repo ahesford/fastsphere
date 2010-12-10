@@ -3,12 +3,13 @@ RM= rm -f
 LD= $(CC)
 
 OPTFLAGS= -fopenmp -O3 -Xarch_x86_64 -march=core2 -Xarch_i386 -march=prescott
+DFLAGS=
 
 ARCHLIBS= -framework Accelerate
 ARCHFLAGS= -D_MACOSX -arch x86_64 -arch i386
 
-CFLAGS= $(OPTFLAGS) $(ARCHFLAGS) -I/opt/local/include -I/usr/local/include
-LFLAGS= $(OPTFLAGS) $(ARCHFLAGS) -L/opt/local/lib -L/usr/local/lib
+CFLAGS= $(OPTFLAGS) $(ARCHFLAGS) $(DFLAGS) -I/opt/local/include -I/usr/local/include
+LFLAGS= $(OPTFLAGS) $(ARCHFLAGS) $(DFLAGS) -L/opt/local/lib -L/usr/local/lib
 
 LIBS= -lgsl -lfftw3_threads -lfftw3
 
