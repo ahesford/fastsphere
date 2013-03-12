@@ -8,8 +8,8 @@ DFLAGS=
 ARCHLIBS= -framework Accelerate
 ARCHFLAGS= -D_MACOSX -arch x86_64 -arch i386
 
-CFLAGS= $(OPTFLAGS) $(ARCHFLAGS) $(DFLAGS) -I/opt/local/include -I/usr/local/include
-LFLAGS= $(OPTFLAGS) $(ARCHFLAGS) $(DFLAGS) -L/opt/local/lib -L/usr/local/lib
+CFLAGS= $(OPTFLAGS) $(ARCHFLAGS) $(DFLAGS) -I/usr/local/include
+LFLAGS= $(OPTFLAGS) $(ARCHFLAGS) $(DFLAGS) -L/usr/local/lib
 
 LIBS= -lgsl -lfftw3_threads -lfftw3
 
@@ -24,12 +24,14 @@ fastsphere: $(OBJS) fastsphere.o spherepix.o
 	$(LD) $(LFLAGS) -o $(SPHEREPIX) spherepix.o $(OBJS) $(LIBS) $(ARCHLIBS)
 	@echo "Finished building $(FASTSPHERE) and $(SPHEREPIX)"
 
-bsd: ARCHLIBS= -lalapack_r -lptf77blas -lptcblas -latlas_r -lgfortran
-bsd: ARCHFLAGS= -D_FREEBSD -L/usr/local/lib/gcc45
-bsd: OPTFLAGS= -fopenmp -O2 -march=opteron -mtune=opteron
-bsd: CC= gcc
-bsd: LD= gfortran
-bsd: fastsphere
+ultra: ARCHLIBS= -L$(ATLAS_DIR)/lib -L$(GSL_DIR)/lib -L$(FFTW_DIR)/lib \
+	-llapack -lptf77blas -lptcblas -latlas -lgfortran
+ultra: ARCHFLAGS= -D_ATLAS -I$(ATLAS_DIR)/include \
+	-I$(FFTW_DIR)/include -I$(GSL_DIR)/include
+ultra: OPTFLAGS= -fopenmp -O2 -march=native -mtune=native
+ultra: CC= gcc
+ultra: LD= gfortran
+ultra: fastsphere
 
 darwin32: ARCHFLAGS= -D_MACOSX -arch i386
 darwin32: fastsphere
