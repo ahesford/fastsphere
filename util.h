@@ -5,8 +5,12 @@
 #include <complex.h>
 
 /* Some helpful macros. */
+#ifndef MAX
 #define MAX(a,b) ((a) > (b) ? (a) : (b))
+#endif
+#ifndef MIN
 #define MIN(a,b) ((a) < (b) ? (a) : (b))
+#endif
 #define SGN(a) ((a) < 0 ? -1 : 1)
 #define ABS(a) ((a) < 0 ? -(a) : (a))
 

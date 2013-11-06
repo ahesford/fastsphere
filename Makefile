@@ -1,12 +1,12 @@
-CC= llvm-gcc
+CC= gcc-4.9.0
 RM= rm -f
 LD= $(CC)
 
-OPTFLAGS= -fopenmp -O3 -Xarch_x86_64 -march=core2 -Xarch_i386 -march=prescott
+OPTFLAGS= -fopenmp -O3 -march=core2
 DFLAGS=
 
 ARCHLIBS= -framework Accelerate
-ARCHFLAGS= -D_MACOSX -arch x86_64 -arch i386
+ARCHFLAGS= -D_MACOSX -flax-vector-conversions
 
 CFLAGS= $(OPTFLAGS) $(ARCHFLAGS) $(DFLAGS) -I/usr/local/include
 LFLAGS= $(OPTFLAGS) $(ARCHFLAGS) $(DFLAGS) -L/usr/local/lib
@@ -32,9 +32,6 @@ ultra: OPTFLAGS= -fopenmp -O2 -march=native -mtune=native
 ultra: CC= gcc
 ultra: LD= gfortran
 ultra: fastsphere
-
-darwin32: ARCHFLAGS= -D_MACOSX -arch i386
-darwin32: fastsphere
 
 clean:
 	$(RM) $(FASTSPHERE) $(SPHEREPIX) $(OBJS) fastsphere.o spherepix.o *.core core
