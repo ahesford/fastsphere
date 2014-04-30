@@ -36,7 +36,8 @@ FILE *critopen (char *, char *);
 int exband (complex double, double);
 int legpoly (int, double, double *);
 
-complex double buildkvec (double, double);
+complex double wavenum (double, double);
+complex double invwavenum (double, double);
 
 int copysh (int, complex double *, int, complex double *, int);
 int shradial (int, complex double *, int, complex double, double);

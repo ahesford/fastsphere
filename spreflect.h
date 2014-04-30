@@ -2,11 +2,10 @@
 #define __SPREFLECT_H_
 
 #include <complex.h>
+#include "fastsphere.h"
 
-int spbldrc (complex double *, complex double, complex double,
-		double, double, double, int);
-int esbldrc (complex double *, complex double *, complex double,
-		complex double, double, double, double, int);
+int spbldrc (sptype *, complex double, double);
+int esbldrc (sptype *, complex double, double);
 
 int spreflect (complex double *, complex double *, complex double *, int, int, int, int);
 

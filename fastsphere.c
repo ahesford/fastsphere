@@ -28,7 +28,6 @@ void usage () {
 	fprintf (stderr, "\t-r\tSpecify output RHS file path (default: none)\n");
 	fprintf (stderr, "\t-m\tSpecify measurement distance (default: infinite)\n");
 	fprintf (stderr, "\t-n\tSpecify maximum number of bounces (default: 10)\n");
-	fprintf (stderr, "\t-n\tSpecify maximum number of bounces (default: 10)\n");
 	fprintf (stderr, "\t-t\tSpecify number of theta samples in scattering pattern (default: optimized)\n");
 
 	exit (EXIT_FAILURE);

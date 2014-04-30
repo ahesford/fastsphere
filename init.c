@@ -36,8 +36,7 @@ int sphinit (sptype *spt, int nspt, complex double bgk,
 		sptr->reflect = calloc (sptr->deg, sizeof(complex double));
 		/* The background relative density is unity, and the sphere
 		 * density is specified relative to the background. */
-		spbldrc (sptr->reflect, bgk, sptr->k,
-				bgrho, sptr->rho, sptr->r, sptr->deg);
+		spbldrc (sptr, bgk, bgrho);
 	}
 
 	return nspt;
@@ -58,8 +57,7 @@ int esbdinit (sptype *sbd, complex double bgk, double bgrho, shdata *shtr, int n
 	sbd->transmit = sbd->reflect + 2 * sbd->deg;
 
 	/* Compute the reflection and transmission coefficients. */
-	esbldrc (sbd->reflect, sbd->transmit, bgk, sbd->k,
-			bgrho, sbd->rho, sbd->r, sbd->deg);
+	esbldrc (sbd, bgk, bgrho);
 
 	return 1;
 }

@@ -17,4 +17,8 @@ int spbesj (complex double *, complex double, int);
 int dspbesh (complex double *, complex double *, complex double, int);
 int dspbesj (complex double *, complex double *, complex double, int);
 
+/* Compute second derivatives of spherical Bessel functions for integer orders. */
+int ddspbesh (complex double *, complex double *, complex double, int);
+int ddspbesj (complex double *, complex double *, complex double, int);
+
 #endif /* __SPBESSEL_H_ */

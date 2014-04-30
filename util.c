@@ -117,13 +117,27 @@ int legpoly (int n, double x, double *v) {
 
 /* Computes the wave number from the relative sound speed and
  * unitless (dB) attenuation coefficient. */
-complex double buildkvec (double cr, double alpha) {
+complex double wavenum (double cr, double alpha) {
 	double kr, ki;
 
 	ki = log(10) * alpha / 20;
 	kr = 2 * M_PI / cr;
 
 	return kr + I * ki;
+}
+
+/* Computes the inverse wave number from the relative sound speed and
+ * unitless (dB) attenuation coefficient. */
+complex double invwavenum (double cr, double alpha) {
+	double kr, ki, mag, csq;
+
+	csq = cr * cr;
+
+	kr = 2 * M_PI * cr;
+	ki = log(10) * alpha / 20;
+	mag = 4 * M_PI * M_PI + ki * ki * csq;
+
+	return (kr / mag) - I * (ki * csq / mag);
 }
 
 /* Copy the spherical harmonic representation from one location to another. */

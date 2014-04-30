@@ -65,6 +65,9 @@ int readcfg (FILE *cfgin, int *nspheres, int *nsptype, sptype **spt, sptype *enc
 	/* Convert attenuation from dB per cm * MHz to dB per wavelength. */
 	bg->alpha *= 1e-4 * bg->cabs;
 
+	/* Build the background wave number. The relative sound speed is unity. */
+	bg->k = wavenum (1.0, bg->alpha);
+
 	if (!nextline (cfgin, buf, BUFLEN)) return 0;
 	
 	/* The excitation frequency and source location. */
@@ -116,7 +119,7 @@ int readcfg (FILE *cfgin, int *nspheres, int *nsptype, sptype **spt, sptype *enc
 		encl->rho /= bg->rho0; /* Density to relative density. */
 		
 		/* Build the wave number for the enclosing sphere. */
-		encl->k = buildkvec (encl->c, encl->alpha);
+		encl->k = wavenum (encl->c, encl->alpha);
 		
 		if (!nextline (cfgin, buf, BUFLEN)) return 0;
 	}
@@ -131,20 +134,28 @@ int readcfg (FILE *cfgin, int *nspheres, int *nsptype, sptype **spt, sptype *enc
 	for (i = 0, stptr = *spt; i < *nsptype; ++i, ++stptr) {
 		if (!nextline (cfgin, buf, BUFLEN)) return 0;
 
-		/* The radius, sound speed, attenuation and density of each
-		 * sphere type. */
-		if (sscanf (buf, "%lf %lf %lf %lf", &(stptr->r), &(stptr->c),
-					&(stptr->alpha), &(stptr->rho)) != 4)
+		/* By default, the shear wave speed is 0. */
+		stptr->csh = 0;
+
+		/* The radius, sound speed, attenuation, density and 
+		 * optional shear wave speed  of each sphere type. */
+		if (sscanf (buf, "%lf %lf %lf %lf %lf", &(stptr->r), 
+					&(stptr->c), &(stptr->alpha),
+					&(stptr->rho), &(stptr->csh)) < 4)
 			return 0;
 
 		/* Convert radius to wavelengths. */
 		stptr->r *= exct->f / bg->cabs;
 
-		/* Convert sound speed to relative sound speed. */
+		/* Convert wave speeds to relative speeds. */
 		stptr->c /= bg->cabs;
+		stptr->csh /= bg->cabs;
 
 		/* Convert attenuation to dB per wavelength. */
 		stptr->alpha *= 1e-4 * bg->cabs;
+
+		/* Build the wave number. */
+		stptr->k = wavenum (stptr->c, stptr->alpha);
 
 		/* Convert density to relative density. */
 		stptr->rho /= bg->rho0;
@@ -165,13 +176,6 @@ int readcfg (FILE *cfgin, int *nspheres, int *nsptype, sptype **spt, sptype *enc
 		(ssptr->cen)[1] *= exct->f / bg->cabs;
 		(ssptr->cen)[2] *= exct->f / bg->cabs;
 	}
-
-	/* Build the background wave number. The relative sound speed is unity. */
-	bg->k = buildkvec (1.0, bg->alpha);
-
-	/* Build the wave numbers for each type of sphere. */
-	for (i = 0, stptr = *spt; i < *nsptype; ++i, ++stptr)
-		stptr->k = buildkvec (stptr->c, stptr->alpha);
 
 	return *nspheres;
 }
