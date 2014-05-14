@@ -9,7 +9,7 @@ typedef enum { TRNONE = 0, TRPLANE, TRDENSE } trtype;
 typedef struct {
 	trtype type;
 	complex double kr, *trdata;
-	double sdir[3], theta, chi, phi;
+	double sdir[3];
 	int trunc;
 } trdesc;
 

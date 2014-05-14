@@ -3,6 +3,7 @@
 
 #include <complex.h>
 #include <math.h>
+#include <float.h>
 
 #include <string.h>
 
@@ -51,7 +52,7 @@ int nextline (FILE *input, char *buf, int maxlen) {
 int readcfg (FILE *cfgin, int *nspheres, int *nsptype, sptype **spt, sptype *encl,
 		spscat **spl, bgtype *bg, exctparm *exct, itconf *itc) {
 	int i, tp;
-	double rb, ib;
+	double rb, ib, *loc, *ax;
 	char buf[BUFLEN];
 	sptype *stptr;
 	spscat *ssptr;
@@ -69,19 +70,37 @@ int readcfg (FILE *cfgin, int *nspheres, int *nsptype, sptype **spt, sptype *enc
 	bg->k = wavenum (1.0, bg->alpha);
 
 	if (!nextline (cfgin, buf, BUFLEN)) return 0;
-	
-	/* The excitation frequency and source location. */
-	if (sscanf (buf, "%lf %d", &(exct->f), &(exct->npw)) != 2) return 0;
+
+	/* The excitation frequency and source counts. */
+	exct->npw = exct->nps = 0;
+	if (sscanf (buf, "%lf %d %d", &(exct->f), &(exct->npw), &(exct->nps)) < 2)
+		return 0;
 
 	/* Convert excitation frequency into Hz. */
 	exct->f *= 1e6;
 
-	/* Allocate space for plane wave magnitudes and frequencies. */
-	exct->mag = malloc (exct->npw * sizeof(complex double));
-	exct->theta = malloc (2 * exct->npw * sizeof(double));
-	exct->phi = exct->theta + exct->npw;
+	if (exct->npw > 0) {
+		/* Allocate space for plane wave magnitudes and directions. */
+		exct->pwmag = malloc (exct->npw * sizeof(complex double));
+		exct->theta = malloc (2 * exct->npw * sizeof(double));
+		exct->phi = exct->theta + exct->npw;
+	} else {
+		exct->pwmag = NULL;
+		exct->theta = exct->phi = NULL;
+	}
 
-	/* Read the excitation parameters. */
+	if (exct->nps > 0) {
+		/* Allocate space for point source configurations. */
+		exct->psmag = malloc (exct->nps * sizeof(complex double));
+		exct->psloc = malloc (7 * exct->nps * sizeof(double));
+		exct->psax = exct->psloc + 3 * exct->nps;
+		exct->alpha = exct->psax + 3 * exct->nps;
+	} else {
+		exct->psmag = NULL;
+		exct->psloc = exct->psax = exct->alpha = NULL;
+	}
+
+	/* Read the plane-wave excitation parameters. */
 	for (i = 0; i < exct->npw; ++i) {
 		if (!nextline (cfgin, buf, BUFLEN)) return 0;
 
@@ -91,11 +110,41 @@ int readcfg (FILE *cfgin, int *nspheres, int *nsptype, sptype **spt, sptype *enc
 			return 0;
 
 		/* Assemble the magnitude. */
-		(exct->mag)[i] = rb + I * ib;
+		(exct->pwmag)[i] = rb + I * ib;
 
 		/* Convert the angles to radians. */
-		(exct->theta)[i] *= M_PI / 180.0;
-		(exct->phi)[i] *= M_PI / 180.0;
+		(exct->theta)[i] = DEG2RAD((exct->theta)[i]);
+		(exct->phi)[i] = DEG2RAD((exct->phi)[i]);
+	}
+
+	/* Read the point-source excitation parameters. */
+	for (i = 0; i < exct->nps; ++i) {
+		if (!nextline (cfgin, buf, BUFLEN)) return 0;
+
+		loc = exct->psloc + 3 * i;
+		ax = exct->psax + 3 * i;
+
+		/* Excitation parameters. */
+		if (sscanf (buf, "%lf %lf %lf %lf %lf %lf %lf %lf %lf",
+					&rb, &ib, loc, loc + 1, loc + 2,
+					ax, ax + 1, ax + 2, exct->alpha + i) != 9)
+			return 0;
+
+		/* Assemble the magnitude. */
+		(exct->psmag)[i] = rb + I * ib;
+
+		/* Convert coordinates to wavelengths. */
+		loc[0] *= exct->f / bg->cabs;
+		loc[1] *= exct->f / bg->cabs;
+		loc[2] *= exct->f / bg->cabs;
+
+		/* Ensure directivity axis has unit length. */
+		rb = MAG(ax[0], ax[1], ax[2]);
+		if (rb > DBL_EPSILON) {
+			ax[0] /= rb;
+			ax[1] /= rb;
+			ax[2] /= rb;
+		} else ax[0] = ax[1] = ax[2] = 0.0;
 	}
 	
 	if (!nextline (cfgin, buf, BUFLEN)) return 0;
@@ -137,9 +186,9 @@ int readcfg (FILE *cfgin, int *nspheres, int *nsptype, sptype **spt, sptype *enc
 		/* By default, the shear wave speed is 0. */
 		stptr->csh = 0;
 
-		/* The radius, sound speed, attenuation, density and 
+		/* The radius, sound speed, attenuation, density and
 		 * optional shear wave speed  of each sphere type. */
-		if (sscanf (buf, "%lf %lf %lf %lf %lf", &(stptr->r), 
+		if (sscanf (buf, "%lf %lf %lf %lf %lf", &(stptr->r),
 					&(stptr->c), &(stptr->alpha),
 					&(stptr->rho), &(stptr->csh)) < 4)
 			return 0;

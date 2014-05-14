@@ -38,9 +38,12 @@ typedef struct {
 
 typedef struct {
 	double f;	/* Excitation frequency. */
-	int npw;	/* Number of plane waves. */
-	complex double *mag;	/* Complex magnitude. */
-	double *theta, *phi;	/* Angular positions. */
+	int npw, nps;	/* Number of plane waves and point sources. */
+	complex double *pwmag;	/* Complex magnitudes, plane waves. */
+	double *theta, *phi;	/* Angular positions, plane waves. */
+	complex double *psmag;  /* Complex magnitudes, point sources. */
+	double *psloc, *psax;   /* Coordinates and directivity axes, point sources. */
+	double *alpha;		/* Directivity widths, point sources. */
 } exctparm;
 
 #endif /* __FASTSPHERE_H_ */

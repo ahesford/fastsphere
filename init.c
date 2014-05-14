@@ -5,7 +5,6 @@
 #include "fastsphere.h"
 #include "translator.h"
 #include "spreflect.h"
-#include "shrotate.h"
 #include "util.h"
 #include "init.h"
 
@@ -109,9 +108,6 @@ trdesc* sphbldfmm (spscat *sph, int nsph, complex double bgk, shdata *shtr) {
 		sdir[0] /= dist; sdir[1] /= dist; sdir[2] /= dist;
 
 		trans[k].trunc = MAX(sph[j].spdesc->deg, sph[i].spdesc->deg);
-
-		/* Find the rotation angles of the translation direction. */
-		getangles (&(trans[k].theta), &(trans[k].chi), &(trans[k].phi), sdir);
 
 		/* Set the translator type. */
 		trans[k].type = TRPLANE;

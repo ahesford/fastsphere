@@ -311,8 +311,10 @@ int main (int argc, char **argv) {
 	fclose (fptr);
 
 	clrspheres (sparms, nsptype);
-	free (exct.mag);
-	free (exct.theta);
+	if (exct.pwmag) free (exct.pwmag);
+	if (exct.theta) free (exct.theta);
+	if (exct.psmag) free (exct.psmag);
+	if (exct.psloc) free (exct.psloc);
 	free (kslab);
 	free (density);
 

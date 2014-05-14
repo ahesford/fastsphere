@@ -5,6 +5,12 @@
 #include <complex.h>
 #include <float.h>
 
+#ifdef _MACOSX
+#include <Accelerate/Accelerate.h>
+#else
+#include <cblas.h>
+#endif
+
 #include <gsl/gsl_sf_legendre.h>
 
 #include "util.h"
@@ -109,7 +115,7 @@ int legpoly (int n, double x, double *v) {
 	v[1] = x;
 
 	/* The recursion formula for Legendre polynomials. */
-	for (i = 1; i < n - 1; ++i) 
+	for (i = 1; i < n - 1; ++i)
 		v[i + 1] = ((2 * i + 1) * x * v[i] - i * v[i - 1]) / (i + 1);
 
 	return 0;

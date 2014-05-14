@@ -269,15 +269,20 @@ int gmres (complex double *sol, complex double *rhs, int guess, spscat *spl,
 
 		/* Apply previous Givens rotations to the Hessenberg column. */
 		for (j = 0; j < i; ++j) 
-			zrot_ (&one, hp + j, &one, hp + j + 1, &one, c + j, s + j);
+			zrot_ (&one, (void *)(hp + j), &one,
+					(void *)(hp + j + 1), &one,
+					(void *)(c + j), (void *)(s + j));
 
 		/* Compute the Givens rotation for the current iteration. */
-		zlartg_ (hp + i, hp + i + 1, c + i, s + i, &cr);
+		zlartg_ ((void *)(hp + i), (void *)(hp + i + 1), 
+				(void *)(c + i), (void *)(s + i), (void *)(&cr));
 		/* Apply the current Givens rotation to the Hessenberg column. */
 		hp[i] = cr;
 		hp[i + 1] = 0;
 		/* Perform the rotation on the vector beta. */
-		zrot_ (&one, beta + i, &one, beta + i + 1, &one, c + i, s + i);
+		zrot_ (&one, (void *)(beta + i), &one, 
+				(void *)(beta + i + 1), &one, 
+				(void *)(c + i), (void *)(s + i));
 
 		/* Estimate the RRE for this iteration. */
 		err = cabs(beta[i + 1]) / rhn;

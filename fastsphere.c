@@ -15,17 +15,17 @@
 #include "scatmat.h"
 #include "farfield.h"
 #include "spreflect.h"
+#include "ptsrc.h"
 
 #ifndef _OPENMP
 int omp_get_max_threads () { return 1; }
 #endif /* _OPENMP */
 
 void usage () {
-	fprintf (stderr, "USAGE: fastsphere [-h] [-n bounces] [-m dist] [-i input] [-o output] [-r rhsfile] [-t samples]\n");
+	fprintf (stderr, "USAGE: fastsphere [-h] [-n bounces] [-m dist] [-i input] [-o output] [-t samples]\n");
 	fprintf (stderr, "\t-h\tPrint this message and exit\n");
 	fprintf (stderr, "\t-i\tSpecify configuration file path (default: stdin)\n");
 	fprintf (stderr, "\t-o\tSpecify output radiation file path (default: stdout)\n");
-	fprintf (stderr, "\t-r\tSpecify output RHS file path (default: none)\n");
 	fprintf (stderr, "\t-m\tSpecify measurement distance (default: infinite)\n");
 	fprintf (stderr, "\t-n\tSpecify maximum number of bounces (default: 10)\n");
 	fprintf (stderr, "\t-t\tSpecify number of theta samples in scattering pattern (default: optimized)\n");
@@ -63,18 +63,15 @@ int main (int argc, char **argv) {
 		*oinc = NULL, *lastwv = NULL, *rpinterp = NULL;
 
 	FILE *fptr = NULL;
-	char *inname = NULL, *outname = NULL, *rhsname = NULL, ch;
+	char *inname = NULL, *outname = NULL, ch;
 
-	while ((ch = getopt (argc, argv, "hi:o:r:m:n:t:")) != -1) {
+	while ((ch = getopt (argc, argv, "hi:o:m:n:t:")) != -1) {
 		switch (ch) {
 		case 'i':
 			inname = optarg;
 			break;
 		case 'o':
 			outname = optarg;
-			break;
-		case 'r':
-			rhsname = optarg;
 			break;
 		case 'm':
 			mslen = atof (optarg);
@@ -148,37 +145,38 @@ int main (int argc, char **argv) {
 		lastwv = oinc + ntbg;
 	}
 
-	/* Build the RHS vector consisting of multiple plane waves. */
+	/* Build the RHS contribution from point sources. */
 #pragma omp parallel for private(i) default(shared)
-	for (i = 0; i < exct.npw; ++i)
-		shincident (shroot.deg, finc, shroot.nphi,
-				(exct.mag)[i], (exct.theta)[i], (exct.phi)[i]);
+	for (i = 0; i < exct.nps; ++i)
+		ptsrcexp (finc, bg.k, &shroot, exct.psmag[i],
+				exct.psloc + 3 * i, exct.psax + 3 * i, exct.alpha[i]);
 
-	/* Include the appropriate scaling factor. */
-	shscale (finc, &shroot, -1);
-
-	if (nbounce > 0) {
-		spreflect (finc, finc, bgspt.transmit, shroot.deg, shroot.nphi, 0, 1);
-		memcpy (oinc, finc, ntbg * sizeof(complex double));
-
-		if (rhsname) {
-			fptr = critopen (rhsname, "w");
-			writebvec (fptr, finc, shroot.nphi, shroot.deg);
-			fclose (fptr);
+	if (exct.npw || nbounce > 0) {
+		/* Convert to a harmonic expansion. */
+		ffsht (finc, &shroot, 0);
+		shscale (finc, &shroot, 1); 
+		
+		/* Include contribution of incident plane waves. */
+#pragma omp parallel for private(i) default(shared)
+		for (i = 0; i < exct.npw; ++i)
+			shincident (shroot.deg, finc, shroot.nphi,
+					exct.pwmag[i], exct.theta[i], exct.phi[i]); 
+		
+		/* Include the appropriate scaling factor. */
+		shscale (finc, &shroot, -1); 
+		
+		if (nbounce > 0) {
+			spreflect (finc, finc, bgspt.transmit, shroot.deg, shroot.nphi, 0, 1);
+			memcpy (oinc, finc, ntbg * sizeof(complex double));
 		}
+		
+		ifsht (finc, &shroot, 0);
 	}
 
-	ifsht (finc, &shroot, 0);
 	fartonear (rhs, finc, slist, nspheres, bgspt.k, &shtr, &shroot);
 	sprflpw (rhs, slist, nspheres, &shtr);
 
 	fprintf (stderr, "Built RHS vector\n");
-
-	if (nbounce < 1 && rhsname) {
-		fptr = critopen (rhsname, "w");
-		writebvec (fptr, rhs, n, 1);
-		fclose (fptr);
-	}
 
 	/* The RHS is the initial guess. */
 	memcpy (sol, rhs, n * sizeof(complex double));
@@ -298,8 +296,10 @@ int main (int argc, char **argv) {
 	fshtfree (&shtr);
 
 	free (trans);
-	free (exct.mag);
-	free (exct.theta);
+	if (exct.pwmag) free (exct.pwmag);
+	if (exct.theta) free (exct.theta);
+	if (exct.psmag) free (exct.psmag);
+	if (exct.psloc) free (exct.psloc);
 
 	free (rhs);
 	free (radpat);

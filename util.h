@@ -18,6 +18,9 @@
 #define ELT(n,m,lda) ((m) * (lda) + (n))
 #define IDX(n,m,lda) ((n) < 0 ? ELT(n,m+1,lda) : ELT(n,m,lda))
 
+#define DEG2RAD(a) ((a) * M_PI / 180.0)
+#define MAG(a,b,c) sqrt(((a) * (a)) + ((b) * (b)) + ((c) * (c)))
+
 #define IMGS_TOL 1e-3
 #define IMGS_ITS 2
 
