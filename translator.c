@@ -56,7 +56,7 @@ int translator (trdesc *trans, int ntheta, int nphi, double *theta) {
 	/* iscale is 2 * i + 1, so fold that into the loop. */
 	for (i = 0, iscale = 1; i < trans->trunc; ++i, iscale += 2) {
 		hfn[i] *= cscale[i % 4] * iscale;
-		rng = cabs (hfn[0] / hfn[i]) * 1e-6;
+		rng = cabs (hfn[0] / (iscale * hfn[i])) * FLT_EPSILON;
 		if (rng < DBL_EPSILON) {
 			fprintf (stderr, "Premature truncation: %d/%d\n", i, trans->trunc);
 			trans->trunc = i;

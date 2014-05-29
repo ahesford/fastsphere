@@ -162,7 +162,7 @@ int bldct (cplx *ct, real *density, int *nelt, double *blim,
 }
 
 int main (int argc, char **argv) {
-	int nspheres, nsptype, n, i, npx;
+	int nspheres, nsptype, n, i, npx, ndig;
 	int autobox = 1, nelt[3] = {100, 100, 100};
 	double boxlim[6], cell[3];
 
@@ -232,7 +232,7 @@ int main (int argc, char **argv) {
 	if (argc < 1 || !strcmp("-", argv[0])) fptr = stdin;
 	else fptr = critopen (argv[0], "r");
 
-	readcfg (fptr, &nspheres, &nsptype, &sparms, bgptr, &slist, &bg, &exct, &itc);
+	readcfg (fptr, &nspheres, &nsptype, &sparms, bgptr, &slist, &bg, &exct, &itc, &ndig);
 	fprintf (stderr, "Parsed configuration for %d spheres at %g MHz\n", nspheres, exct.f / 1e6);
 
 	fclose (fptr);

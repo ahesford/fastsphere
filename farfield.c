@@ -8,7 +8,7 @@
 #include "util.h"
 
 /* Compute the required order of the root sphere. */
-int rootorder (spscat *slist, int nsph, complex double bgk) {
+int rootorder (spscat *slist, int nsph, complex double bgk, int ndig) {
 	int i, l;
 	double rad = 0.0, clen;
 
@@ -22,7 +22,7 @@ int rootorder (spscat *slist, int nsph, complex double bgk) {
 	}
 
 	/* Use the excess bandwidth formula to find the number of terms. */
-	l = exband (bgk * rad, 6);
+	l = exband (bgk * rad, ndig);
 
 	return l;
 }

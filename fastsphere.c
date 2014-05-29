@@ -49,7 +49,7 @@ int writebvec (FILE *out, complex double *vec, int n, int m) {
 
 int main (int argc, char **argv) {
 	int nspheres, nsptype, n, nterm, i, j, nit, nbounce = 0;
-	int ntbg, ntheta = 0, mxthd = 1;
+	int ntbg, ntheta = 0, mxthd = 1, ndig;
 	sptype *sparms, bgspt;
 	spscat *slist;
 	bgtype bg;
@@ -96,17 +96,19 @@ int main (int argc, char **argv) {
 	if (mxthd > 1) fftw_init_threads ();
 
 	if (nbounce > 0)
-		readcfg (fptr, &nspheres, &nsptype, &sparms, &bgspt, &slist, &bg, &exct, &itc);
+		readcfg (fptr, &nspheres, &nsptype, &sparms, 
+				&bgspt, &slist, &bg, &exct, &itc, &ndig);
 	else {
-		readcfg (fptr, &nspheres, &nsptype, &sparms, NULL, &slist, &bg, &exct, &itc);
+		readcfg (fptr, &nspheres, &nsptype, &sparms, 
+				NULL, &slist, &bg, &exct, &itc, &ndig);
 		/* There is no enclosing sphere; the k-vector and density should
 		 * not contrast from background material. */
 		bgspt.k = bg.k;
 		bgspt.rho = 1.0;
 	}
 	fprintf (stderr, "Parsed configuration for %d spheres at %g MHz\n", nspheres, exct.f / 1e6);
-	sphinit (sparms, nsptype, bgspt.k, bgspt.rho, &shtr, -1);
-	fprintf (stderr, "Initialized spherical harmonic data for degree %d\n", shtr.deg);
+	sphinit (sparms, nsptype, bgspt.k, bgspt.rho, &shtr, -1, ndig);
+	fprintf (stderr, "Initialized spherical harmonic data for degree %d (%d digits accurate)\n", shtr.deg, ndig);
 	trans = sphbldfmm (slist, nspheres, bgspt.k, &shtr);
 	fprintf (stderr, "Built FMM translators for all spheres\n");
 
@@ -120,11 +122,11 @@ int main (int argc, char **argv) {
 
 	if (nbounce > 0) {
 		/* Use the lowest-possible sampling rate for the enclosing sphere. */
-		esbdinit (&bgspt, bg.k, 1.0, &shroot, 0);
+		esbdinit (&bgspt, bg.k, 1.0, &shroot, 0, ndig);
 		fprintf (stderr, "Built data for enclosing sphere\n");
 	} else {
 		/* Use the greater of the estimated root bandwidth or that requested. */
-		i = rootorder (slist, nspheres, bg.k);
+		i = rootorder (slist, nspheres, bg.k, ndig);
 		ntheta = MAX (i + (i % 2) + 1, ntheta);
 		fshtinit (&shroot, i, ntheta, 2 * ntheta, 1);
 		fprintf (stderr, "Built spherical harmonic data for far-field\n");

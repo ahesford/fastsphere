@@ -50,9 +50,9 @@ int nextline (FILE *input, char *buf, int maxlen) {
 }
 
 int readcfg (FILE *cfgin, int *nspheres, int *nsptype, sptype **spt, sptype *encl,
-		spscat **spl, bgtype *bg, exctparm *exct, itconf *itc) {
+		spscat **spl, bgtype *bg, exctparm *exct, itconf *itc, int *ndig) {
 	int i, tp;
-	double rb, ib, *loc, *ax;
+	double rb, ib, *loc, *ax, tracc = -1.0;
 	char buf[BUFLEN];
 	sptype *stptr;
 	spscat *ssptr;
@@ -173,8 +173,13 @@ int readcfg (FILE *cfgin, int *nspheres, int *nsptype, sptype **spt, sptype *enc
 		if (!nextline (cfgin, buf, BUFLEN)) return 0;
 	}
 
-	/* The number of spheres, and the number of unique sphere types. */
-	if (sscanf (buf, "%d %d", nspheres, nsptype) != 2) return 0;
+	/* The number of spheres, and the number of unique sphere types. 
+	 * The translation and harmonic accuracy argument is optional. */
+	if (sscanf (buf, "%d %d %lf", nspheres, nsptype, &tracc) < 2) return 0;
+
+	/* Compute the desired accuracy or use the default. */
+	if (tracc > 0) *ndig = MAX(MIN_ACC_DIG, (int)(-floor(log10(tracc))));
+	else *ndig = DEF_ACC_DIG;
 
 	/* Allocate the sphere list and type list. */
 	*spt = malloc (*nsptype * sizeof (sptype));

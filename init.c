@@ -9,13 +9,13 @@
 #include "init.h"
 
 int sphinit (sptype *spt, int nspt, complex double bgk,
-		double bgrho, shdata *shtr, int nt) {
+		double bgrho, shdata *shtr, int nt, int ndig) {
 	int i, deg = 0;
 	sptype *sptr;
 
 	/* Find the maximum spherical harmonic degree required. */
 	for (i = 0, sptr = spt; i < nspt; ++i, ++sptr) {
-		sptr->deg = exband (bgk * sptr->r, 6);
+		sptr->deg = exband (bgk * sptr->r, ndig);
 		deg = MAX(deg, sptr->deg);
 	}
 
@@ -41,9 +41,10 @@ int sphinit (sptype *spt, int nspt, complex double bgk,
 	return nspt;
 }
 
-int esbdinit (sptype *sbd, complex double bgk, double bgrho, shdata *shtr, int nang) {
+int esbdinit (sptype *sbd, complex double bgk, 
+		double bgrho, shdata *shtr, int nang, int ndig) {
 	/* The spherical harmonic degree for the background sphere. */
-	sbd->deg = exband (bgk * sbd->r, 6);
+	sbd->deg = exband (bgk * sbd->r, ndig);
 	/* The number of angular samples in theta is forced to be odd,
 	 * and at least equal to the degree required. */
 	nang = MAX(sbd->deg + (sbd->deg % 2) + 1, nang);
