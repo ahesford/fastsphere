@@ -100,14 +100,13 @@ int shscale (complex double *samp, shdata *dat, int sgn) {
  * and phi into SH coefficients. */
 int ffsht (complex double *samp, shdata *dat, int maxdeg) {
 	int i, j, k, aoff, npk, dm1, deg = maxdeg;
+	long lgn, lgi;
 	double pc, scale, *lgvals;
 	complex double *beta, *fftbuf;
 
 	/* Copy the samples to the FFT buffer and perform the FFT. */
 	fftbuf = fftw_malloc (dat->ntheta * dat->nphi * sizeof(complex double));
 	memcpy (fftbuf, samp, dat->ntheta * dat->nphi * sizeof(complex double));
-
-	lgvals = malloc (dat->deg * sizeof(double));
 
 	/* Perform an in-place FFT of the buffer. */
 	fftw_execute_dft (dat->fplan, fftbuf, fftbuf);
@@ -122,24 +121,32 @@ int ffsht (complex double *samp, shdata *dat, int maxdeg) {
 
 	dm1 = deg - 1;
 
+	/* Create storage for all Legendre polynomials. */
+	lgn = gsl_sf_legendre_array_n (dm1);
+	lgvals = malloc (lgn * sizeof(double));
+
+
 	for (i = 0; i < dat->ntheta; ++i) {
 		/* The scale factor that will be required. */
 		scale = 2 * M_PI * dat->weights[i] / dat->nphi;
 
-		/* Build the Legendre polynomials that we need. */
-		gsl_sf_legendre_sphPlm_array (dm1, 0, dat->theta[i], lgvals);
+		/* Build the Legendre polynomials that we need.
+		 * Don't use Condon-Shortley phase factor. */
+		gsl_sf_legendre_array_e (GSL_SF_LEGENDRE_SPHARM, dm1, dat->theta[i], 1., lgvals);
 
 		/* Handle m = 0 for all degrees. */
-		for (j = 0; j < deg; ++j)
-			samp[j * dat->nphi] += scale * beta[0] * lgvals[j];
+		for (j = 0; j < deg; ++j) {
+			lgi = gsl_sf_legendre_array_index(j, 0);
+			samp[j * dat->nphi] += scale * beta[0] * lgvals[lgi];
+		}
 
 		/* Handle nonzero orders for all relevant degrees. */
 		for (k = 1; k < deg; ++k) {
 			npk = dat->nphi - k;
-			gsl_sf_legendre_sphPlm_array (dm1, k, dat->theta[i], lgvals);
 			for (j = k; j < deg; ++j) {
 				aoff = j * dat->nphi;
-				pc = scale * lgvals[j - k];
+				lgi = gsl_sf_legendre_array_index(j, k);
+				pc = scale * lgvals[lgi];
 				/* The positive-order coefficient. */
 				samp[aoff + k] += pc * beta[k];
 				/* The negative-order coefficient. */
@@ -160,6 +167,7 @@ int ffsht (complex double *samp, shdata *dat, int maxdeg) {
  * function in theta and phi. */
 int ifsht (complex double *samp, shdata *dat, int maxdeg) {
 	int i, j, k, aoff, npk, dm1, n, deg = maxdeg;
+	long lgn, lgi;
 	double *lgvals;
 	complex double *beta, *fftbuf;
 
@@ -170,8 +178,6 @@ int ifsht (complex double *samp, shdata *dat, int maxdeg) {
 	fftbuf = fftw_malloc (n * sizeof(complex double));
 	memset (fftbuf, 0, n * sizeof(complex double));
 
-	lgvals = malloc (dat->deg * sizeof(double));
-
 	beta = fftbuf;
 
 	/* Use the default degree if no maximum is specified. */
@@ -179,22 +185,29 @@ int ifsht (complex double *samp, shdata *dat, int maxdeg) {
 
 	dm1 = deg - 1;
 
+	/* Create storage for all Legendre polynomials. */
+	lgn = gsl_sf_legendre_array_n(dm1);
+	lgvals = malloc (lgn * sizeof(double));
+
 	for (i = 0; i < dat->ntheta; ++i) {
 		/* Build the Legendre polynomials that we need. */
-		gsl_sf_legendre_sphPlm_array (dm1, 0, dat->theta[i], lgvals);
+		/* Don't use the Condon-Shortley phase factor. */
+		gsl_sf_legendre_array_e (GSL_SF_LEGENDRE_SPHARM, dm1, dat->theta[i], 1., lgvals);
 
-		for (j = 0; j < deg; ++j)
-			beta[0] += samp[j * dat->nphi] * lgvals[j];
+		for (j = 0; j < deg; ++j) {
+			lgi = gsl_sf_legendre_array_index(j, 0);
+			beta[0] += samp[j * dat->nphi] * lgvals[lgi];
+		}
 
 		for (k = 1; k < deg; ++k) {
 			npk = dat->nphi - k;
-			gsl_sf_legendre_sphPlm_array (dm1, k, dat->theta[i], lgvals);
 			for (j = k; j < deg; ++j) {
 				aoff = j * dat->nphi;
+				lgi = gsl_sf_legendre_array_index(j, k);
 				/* The positive-order coefficient. */
-				beta[k] += samp[aoff + k] * lgvals[j - k];
+				beta[k] += samp[aoff + k] * lgvals[lgi];
 				/* The negative-order coefficient. */
-				beta[npk] += samp[aoff + npk] * lgvals[j - k];
+				beta[npk] += samp[aoff + npk] * lgvals[lgi];
 			}
 		}
 

@@ -1,8 +1,8 @@
-CC= /usr/local/bin/clang
+CC= clang-openmp
 RM= rm -f
 LD= $(CC)
 
-OPTFLAGS= -fopenmp -O3 -march=core2
+OPTFLAGS= -fopenmp -Ofast -march=native
 DFLAGS=
 
 ARCHLIBS= -framework Accelerate
@@ -28,7 +28,7 @@ habis: ARCHLIBS= -L$(ATLAS_DIR)/lib -L$(GSL_DIR)/lib -L$(FFTW_DIR)/lib \
 	-llapack -lptf77blas -lptcblas -latlas -lgfortran
 habis: ARCHFLAGS= -D_ATLAS -I$(ATLAS_DIR)/include \
 	-I$(FFTW_DIR)/include -I$(GSL_DIR)/include
-habis: OPTFLAGS= -fopenmp -O2 -march=native -mtune=native
+habis: OPTFLAGS= -fopenmp -Ofast -march=native -mtune=native
 habis: CC= gcc
 habis: LD= gfortran
 habis: fastsphere

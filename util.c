@@ -201,6 +201,7 @@ int shincident (int deg, complex double *a, int lda,
 		complex double mag, double theta, double phi) {
 	double cth, *lgvals;
 	int l, m, dm1, npm, off;
+	long lgi, lgn;
 	complex double scale[4] = { 1, -I, -1, I }, cx, fx;
 
 	/* The coefficient has a 4 pi factor that must be included. */
@@ -209,19 +210,20 @@ int shincident (int deg, complex double *a, int lda,
 	dm1 = deg - 1;
 	cth = cos(theta);
 
-	lgvals = malloc (deg * sizeof(double));
+	lgn = gsl_sf_legendre_array_n (dm1);
+	lgvals = malloc (lgn * sizeof(double));
 
 	/* Compute the Legendre polynomials of zero order for all degrees. */
-	gsl_sf_legendre_sphPlm_array (dm1, 0, cth, lgvals);
+	gsl_sf_legendre_array_e (GSL_SF_LEGENDRE_SPHARM, dm1, cth, 1., lgvals);
 
 	/* Compute the zero-order coefficients for all degrees. */
-	for (l = 0; l < deg; ++l) a[l * lda] += scale[l % 4] * mag * lgvals[l];
+	for (l = 0; l < deg; ++l) {
+		lgi = gsl_sf_legendre_array_index(l, 0);
+		a[l * lda] += scale[l % 4] * mag * lgvals[lgi];
+	}
 
 	for (m = 1; m < deg; ++m) {
 		npm = lda - m;
-
-		/* Compute the Legendre polynomials of fixed order for all degrees. */
-		gsl_sf_legendre_sphPlm_array (dm1, m, cth, lgvals);
 
 		/* Compute the phi variation. */
 		cx = cexp (I * m * phi);
@@ -229,7 +231,8 @@ int shincident (int deg, complex double *a, int lda,
 #pragma omp critical(incaug)
 		for (l = m; l < deg; ++l) {
 			off = l * lda;
-			fx = scale[l % 4] * mag * lgvals[l - m];
+			lgi = gsl_sf_legendre_array_index(l, m);
+			fx = scale[l % 4] * mag * lgvals[lgi];
 			/* The positive-order coefficient. */
 			a[off + m] += fx * conj (cx);
 			/* The negative-order coefficient. */
